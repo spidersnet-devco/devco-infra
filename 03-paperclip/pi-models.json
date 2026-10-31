@@ -1,0 +1,13 @@
+{
+  "providers": {
+    "devco": {
+      "baseUrl": "__GATEWAY__",
+      "api": "openai-completions",
+      "apiKey": "no-key-required",
+      "models": [
+        { "id": "coder-fast" },
+        { "id": "coder-accurate" }
+      ]
+    }
+  }
+}

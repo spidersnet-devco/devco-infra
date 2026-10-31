@@ -1,0 +1,17 @@
+# Docker / homelab stacks repo
+# Real env files hold secrets; only the examples are committed.
+.env
+**/.env
+!**/.env.example
+
+# Runtime data that containers write next to their compose files
+**/data/
+**/config/*.db
+**/config/*.sqlite
+**/logs/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+*.log

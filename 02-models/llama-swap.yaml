@@ -1,0 +1,120 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/mostlygeek/llama-swap/refs/heads/main/config-schema.json
+#
+# llama-swap config for the MS-S1 Max model gateway.
+#
+# Agents never ask for a model by name. They ask for a ROLE:
+#   coder-accurate  -> best local model      (gpt-oss-120b, MXFP4)
+#   coder-fast      -> quick lane            (Qwen3-Coder-30B-A3B, Q4_K_M)
+#
+# Both stay loaded at once (group below). Memory budget on 128 GB unified:
+#   gpt-oss-120b weights ~61 GB + KV (3 slots x 64K, q8_0) ~4 GB
+#   Qwen3-Coder-30B weights ~18 GB + KV (2 slots x 64K, q8_0) ~6 GB
+#   = ~89 GB for inference, ~39 GB left for OS, Paperclip, Hermes, builds.
+# If that is too tight, set swap: true in the group and only one loads at a time.
+
+healthCheckTimeout: 900        # cold load of 61 GB from NVMe takes a while
+logLevel: info
+logToStdout: proxy
+startPort: 10001
+sendLoadingState: false
+metricsMaxInMemory: 2000
+
+macros:
+  # Common llama-server flags for Strix Halo (Vulkan).
+  #   -ngl 99        everything on the iGPU
+  #   -fa on         flash attention (saves memory at long context)
+  #   --jinja        REQUIRED for tool calling
+  #   --no-mmap      avoids mmap slowdowns on unified memory
+  #   q8_0 KV cache  halves KV memory with negligible quality loss
+  "llama": >
+    /opt/llama.cpp/bin/llama-server --host 127.0.0.1 --port ${PORT}
+    -ngl 99 -fa on --jinja --no-mmap
+    --cache-type-k q8_0 --cache-type-v q8_0
+    -ub 2048 -b 2048 --metrics
+
+  # Paths printed by 02-models/download-models.sh — adjust if the filenames differ.
+  "gptoss_gguf": "/opt/models/gpt-oss-120b/gpt-oss-120b-mxfp4-00001-of-00003.gguf"
+  "qwen_gguf":   "/opt/models/qwen3-coder-30b-a3b/Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf"
+
+models:
+  "coder-accurate":
+    name: "coder-accurate (gpt-oss-120b MXFP4)"
+    description: "Accuracy tier. Juniors' default, review-grade work."
+    # Total context is split across slots: 196608 / 3 = 65536 per slot,
+    # which is the minimum Hermes Agent accepts per session.
+    cmd: |
+      ${llama}
+      --model ${gptoss_gguf}
+      --ctx-size 196608 --parallel 3
+      --temp 1.0 --top-p 1.0 --min-p 0.0 --top-k 0
+    ttl: 0
+    aliases:
+      - "gpt-oss-120b"
+    filters:
+      # Reasoning effort variants without reloading: coder-accurate:high etc.
+      setParamsByID:
+        "${MODEL_ID}":
+          chat_template_kwargs:
+            reasoning_effort: medium
+        "${MODEL_ID}:high":
+          chat_template_kwargs:
+            reasoning_effort: high
+        "${MODEL_ID}:low":
+          chat_template_kwargs:
+            reasoning_effort: low
+    capabilities:
+      in: [text]
+      out: [text]
+      tools: true
+      context: 65536
+
+  "coder-fast":
+    name: "coder-fast (Qwen3-Coder-30B-A3B Q4_K_M)"
+    description: "Fast lane. Watchdog, trivial tickets, scaffolding, lint fixes."
+    cmd: |
+      ${llama}
+      --model ${qwen_gguf}
+      --ctx-size 131072 --parallel 2
+      --temp 0.7 --top-p 0.8 --top-k 20 --repeat-penalty 1.05
+    ttl: 0
+    aliases:
+      - "qwen3-coder-30b"
+    capabilities:
+      in: [text]
+      out: [text]
+      tools: true
+      context: 65536
+
+routing:
+  router:
+    use: group
+    settings:
+      groups:
+        # Both models resident at the same time; nothing ever swaps them out.
+        "local":
+          swap: false
+          exclusive: false
+          persistent: true
+          members:
+            - "coder-accurate"
+            - "coder-fast"
+
+hooks:
+  on_startup:
+    preload:
+      - "coder-accurate"
+      - "coder-fast"
+
+# ---------------------------------------------------------------------------
+# EXPANSION (Athena): llama-swap can proxy to another llama-swap/vLLM as a
+# "peer". When Athena is up, uncomment and point the fast lane at it:
+#
+# peers:
+#   athena:
+#     proxy: http://athena.lan:8080
+#     models:
+#       - coder-fast-gpu
+#
+# Then either change Hermes/Pi configs to ask for "athena/coder-fast-gpu", or
+# keep the alias stable with a selector (see 05-expansion/athena-fast-lane.md).
+# ---------------------------------------------------------------------------

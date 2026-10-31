@@ -1,0 +1,19 @@
+# systemd --user unit: ~/.config/systemd/user/llama-swap.service
+# Installed by 02-models/install-llama-swap.sh
+[Unit]
+Description=llama-swap model gateway (devco)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/opt/llama-swap/llama-swap -config /opt/llama-swap/config.yaml -listen 127.0.0.1:8080
+WorkingDirectory=/opt/llama-swap
+Restart=always
+RestartSec=5
+# llama-server reads models from /opt/models; nothing else needs env here.
+Environment=HOME=%h
+LimitNOFILE=65536
+
+[Install]
+WantedBy=default.target

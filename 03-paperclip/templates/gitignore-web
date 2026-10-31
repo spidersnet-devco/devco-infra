@@ -1,0 +1,20 @@
+# Web / Node project
+node_modules/
+dist/
+build/
+.cache/
+.parcel-cache/
+.vite/
+coverage/
+
+# Secrets / local config
+.env
+.env.*
+!.env.example
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log

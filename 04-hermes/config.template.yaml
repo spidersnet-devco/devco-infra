@@ -1,0 +1,35 @@
+# Merged INTO each profile's ~/.hermes/profiles/<name>/config.yaml by
+# create-profiles.sh (keys here override, everything else Hermes seeded stays).
+#
+# Agents ask the gateway for a ROLE alias. Nothing here names a real model, so
+# swapping gpt-oss-120b for something better later is a llama-swap change only.
+
+model:
+  provider: custom
+  default: coder-accurate
+  base_url: __GATEWAY__
+  api_key: __GATEWAY_KEY__
+  # Per-slot context on the gateway. Hermes refuses anything under 64K.
+  context_length: 65536
+
+# If the accurate model is busy/erroring, fall through to the fast lane for
+# that turn rather than failing the task.
+fallback_providers:
+  - provider: custom
+    model: coder-fast
+    base_url: __GATEWAY__
+
+# Cheap side tasks go to the fast lane so they never queue behind real work.
+auxiliary:
+  compression:
+    base_url: __GATEWAY__
+    api_key: __GATEWAY_KEY__
+    model: coder-fast
+  title_generation:
+    base_url: __GATEWAY__
+    api_key: __GATEWAY_KEY__
+    model: coder-fast
+
+# Where terminal commands start. Every ticket names a repo under here.
+terminal:
+  cwd: __REPOS__

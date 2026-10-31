@@ -1,0 +1,31 @@
+# Never commit real machine config or secrets
+devco.env
+*.env
+.env
+.env.*
+!devco.env.example
+!*.env.example
+
+# Keys, tokens
+*.pem
+*.key
+id_ed25519*
+*.token
+
+# Local scratch
+NOTES.local.md
+*.log
+*.bak
+*.bak.*
+.venv/
+__pycache__/
+*.pyc
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Hermes profile exports (store on the NAS, not here)
+*.hermes-profile.tar.gz
