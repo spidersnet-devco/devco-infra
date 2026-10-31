@@ -19,18 +19,35 @@ yourself in a throwaway checkout (it never touches the shared tree):
 /opt/devco/bin/qa-run.sh --pr <PR-URL>
 ```
 
-## How you record the verdict
+## How you record the verdict — one command, always
 
-You share the bot's GitHub identity with the engineers, and GitHub refuses to let a PR
-author approve their own PR. So you never use `gh pr review --approve`. Instead:
+A verdict lives on **GitHub**, where the board merges: a review comment on the PR plus
+a label. Approving the Paperclip task without those is not a verdict; the board will
+not see it, and the run will be counted as a miss. So you record every verdict with
+exactly one command, which posts the comment, sets the label and updates the Paperclip
+task for you:
 
-- **Looks good:** `gh pr review <url> --comment --body-file <file>` with your four
-  answers, then `gh pr edit <url> --add-label reviewer-approved`. On the Paperclip task,
-  mark your review stage approved and write one line: "Reviewed, ready for the board."
-- **Needs work:** `gh pr review <url> --request-changes` fails for the same reason, so
-  post a `--comment` review with a **numbered list of exactly what to fix**, add the
-  label `changes-requested`, and request changes on the Paperclip task. The runtime
-  sends the task straight back to the engineer; the CEO is not in that loop.
+```bash
+body="$(mktemp)"
+cat > "$body" <<'MD'
+<your four answers, as a short numbered list; for "needs work", a numbered list of
+exactly what to fix>
+MD
+/opt/devco/bin/review-verdict.sh approve <PR-URL> "$body"    # looks good
+/opt/devco/bin/review-verdict.sh changes <PR-URL> "$body"    # needs work
+```
+
+- `approve` posts the comment, sets `reviewer-approved`, and marks your review stage
+  on the Paperclip task approved (status done).
+- `changes` posts the comment, sets `changes-requested`, and requests changes on the
+  task; the runtime sends it straight back to the engineer. The CEO is not in that loop.
+- Do not call the Paperclip API for the verdict yourself; the script does it, and the
+  task is not done until the script has printed both its "GitHub:" and "Paperclip:"
+  lines. If it fails, paste its last lines in a comment on the task and stop (leave
+  the task in review) — that is a wiring problem for the board, not something to work
+  around.
+- You never use `gh pr review --approve` or `--request-changes`: you share the bot's
+  GitHub identity with the engineers, and GitHub refuses both on your own PR.
 - **Third time the same PR reaches you:** stop reviewing. Create a task assigned to the
   CEO titled "Escalate: <PR title>" with a two-line summary of what keeps failing.
 

@@ -107,6 +107,26 @@ check "skill descriptions <= 60 chars" bash -c "! grep -rh '^description:' '$ROO
 check "no stale /opt/devco/qa-run.sh paths" bash -c "! grep -rn '/opt/devco/qa-run\.sh' '$ROOT' --include='*.md' --include='*.sh' --include='*.json' | grep -v 'bin/qa-run.sh'"
 check "no hermes gateway/invite leftovers" bash -c "! grep -rln 'gateway install\|hermes_gateway\|8642' '$ROOT' --include='*.sh' --include='*.md' --include='*.yaml' --include='*.json' | grep -v 'NOTES.md\|03-paperclip/agents/README.md\|SECRETS.md\|tests/run-tests.sh'"
 
+echo "== review-verdict.sh (fake gh + curl)"
+FB="$WORK/fakebin"; mkdir -p "$FB"
+cat > "$FB/gh" <<'EOF'
+#!/usr/bin/env bash
+echo "gh $*" >> "$FAKE_LOG"
+[[ "$*" == *"--remove-label"* ]] && exit 1   # label not present: gh errors, the script must not care
+exit 0
+EOF
+cat > "$FB/curl" <<'EOF'
+#!/usr/bin/env bash
+echo "curl $*" >> "$FAKE_LOG"; exit 0
+EOF
+chmod +x "$FB"/*; printf 'Looks good.\n1. yes\n' > "$WORK/body.md"; export FAKE_LOG="$WORK/verdict.log"; : > "$FAKE_LOG"
+RV="$ROOT/03-paperclip/routines/review-verdict.sh"; PR=https://github.com/spidersnet-devco/peel/pull/2
+check "approve: comment, label, Paperclip PATCH status=done" bash -c "PATH='$FB:$PATH' PAPERCLIP_API_URL=http://x PAPERCLIP_API_KEY=k PAPERCLIP_TASK_ID=t1 PAPERCLIP_RUN_ID=r1 bash '$RV' approve $PR '$WORK/body.md' && grep -q -- '--comment --body-file' '$FAKE_LOG' && grep -q -- '--add-label reviewer-approved' '$FAKE_LOG' && grep -q 'PATCH http://x/api/issues/t1' '$FAKE_LOG' && grep -q '\"status\": \"done\"' '$FAKE_LOG'"
+: > "$FAKE_LOG"
+check "changes: label changes-requested, no Paperclip call without run vars" bash -c "PATH='$FB:$PATH' bash '$RV' changes $PR '$WORK/body.md' | grep -q 'record the verdict on the task yourself' && grep -q -- '--add-label changes-requested' '$FAKE_LOG' && ! grep -q curl '$FAKE_LOG'"
+check "refuses a non-PR url and an empty body" bash -c "! PATH='$FB:$PATH' bash '$RV' approve https://example.com/x '$WORK/body.md' 2>/dev/null && : > '$WORK/empty.md' && ! PATH='$FB:$PATH' bash '$RV' approve $PR '$WORK/empty.md' 2>/dev/null"
+check "install-paperclip.sh installs review-verdict.sh" grep -q 'review-verdict.sh" /opt/devco/bin/review-verdict.sh' "$ROOT/03-paperclip/install-paperclip.sh"
+
 if (( QUICK )); then echo; echo "quick mode: skipping qa-run.sh fixtures"; else
 echo "== qa-run.sh fixtures"
 QA="$ROOT/03-paperclip/routines/qa-run.sh"

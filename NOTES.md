@@ -66,6 +66,14 @@ Paste `devco versions` here after each phase, with the date.
 - 2026-10-31 — 124 GiB GTT (not 128): leaves 4 GiB the GPU cannot pin, so a runaway
   allocation fails cleanly instead of OOM-killing the host.
 
+- 2026-10-31 — second ticket (SPI-2 → SPI-3) round-tripped: CEO routed, pyro delivered
+  PR #2 with QA PASS, Watchdog verified, Reviewer approved, CEO reported with a merge
+  request, board merged. One miss: the Reviewer (Codex) recorded its approval on the
+  Paperclip task only — no review comment and no `reviewer-approved` label on GitHub
+  (it followed Paperclip's review-stage procedure and skipped the `gh` steps in its
+  AGENTS.md). Fix: the verdict is now one command, `/opt/devco/bin/review-verdict.sh
+  approve|changes <pr> <body>`, which posts the comment, sets the label and updates the
+  task together; the CEO's hand-back check now verifies the label on GitHub.
 - 2026-10-31 — the board opened the Principal and the Chief Architect to the CEO
   (no `protected` assignment policy, Architect not paused) so hard work climbs the
   ladder without a human in the loop. The ladder rules in `ceo/AGENTS.md` are now the

@@ -94,6 +94,7 @@ echo "==> Repos directory, QA runner, helper scripts -> /opt/devco/bin"
 mkdir -p "$DEVCO_REPOS" /opt/devco/bin /opt/devco/cache
 install -m 0755 "$HERE/routines/qa-run.sh"        /opt/devco/bin/qa-run.sh
 install -m 0755 "$HERE/routines/mirror-repos.sh"  /opt/devco/bin/mirror-repos.sh
+install -m 0755 "$HERE/routines/review-verdict.sh" /opt/devco/bin/review-verdict.sh
 install -m 0755 "$HERE/clone-project.sh"          /opt/devco/bin/clone-project.sh
 install -m 0755 "$HERE/create-company.sh"         /opt/devco/bin/create-company.sh
 install -m 0755 "$HERE/lockdown.sh"               /opt/devco/bin/lockdown.sh

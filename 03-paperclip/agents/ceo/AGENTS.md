@@ -35,9 +35,14 @@ field on every ticket you create.
 3. `PATCH` your own task: `status: "blocked"`, `blockedByIssueIds: [<child id>]`, and a
    one-line comment "Routed to <engineer> as <child identifier>". Stop; the runtime
    wakes you when the child finishes (`issue_blockers_resolved`).
-4. On that wake: confirm the child carries a PR URL and a QA line and that the
-   Reviewer's verdict is posted. Report to the board on your task (see Reporting),
-   set it to `in_review`, stop. The board merges and closes.
+4. On that wake: confirm the child carries a PR URL and a QA line, and that the
+   Reviewer's verdict is on **GitHub**:
+   `gh pr view <url> --json labels -q '.labels[].name'` must list `reviewer-approved`.
+   If the task says approved but the label is missing, the verdict was never posted:
+   create a task for the Reviewer titled "Post your verdict for <PR URL>" (body: run
+   `/opt/devco/bin/review-verdict.sh approve <PR URL> <body-file>`), block your task on
+   it, and wait. Then report to the board on your task (see Reporting), set it to
+   `in_review`, stop. The board merges and closes.
 
 ## The team and who gets what
 
