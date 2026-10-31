@@ -213,9 +213,17 @@ Something small, verifiable, and in one junior's field. For Peel, a good first o
 (create it as a task in Paperclip, **Project: peel**, assigned to the CEO):
 
 ```
-Add a pytest smoke test that imports the package and instantiates the main window
-offscreen (QT_QPA_PLATFORM=offscreen) without error. Done means: a new test under
-tests/, qa-run.sh passes, nothing else in the repo changes. Branch: devco/<ticket-id>-pytest-smoke.
+Add a pytest smoke test for Peel.
+Context: the code is flat modules in src/ (no package, no pyproject), so nothing imports
+until src/ is on sys.path. The GUI is PySide6; the main window is peel_gui.MainWindow;
+constructing it must not load or download any rembg model.
+Do: (1) add pytest.ini at the repo root with [pytest] testpaths = tests and
+pythonpath = src; (2) add tests/test_smoke.py that imports peel_core and peel, then with
+QT_QPA_PLATFORM=offscreen creates a QApplication (reuse QApplication.instance() if one
+exists), constructs peel_gui.MainWindow() and closes it without error; (3) run qa-run.sh
+and make it pass.
+Done means: the test is collected and passes under qa-run.sh, nothing else in the repo
+changes. Branch: devco/<ticket-id>-pytest-smoke.
 ```
 
 Watch the whole loop: CEO → pyro → QA → PR on GitHub → Reviewer (comment +
