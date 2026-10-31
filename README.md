@@ -209,11 +209,14 @@ Recommended at this point: the nightly mirror and backup to the NAS,
 
 ## Phase 5 — the first ticket
 
-Something small, verifiable, and in one junior's field. For Peel, a good first one
-(create it as a task in Paperclip, **Project: peel**, assigned to the CEO):
+Something small, verifiable, and in one junior's field. Create it in Paperclip as a
+task assigned to the **CEO** with **no Project** — a Project would drop the CEO into
+that repo's checkout, and the CEO's job is to route, not to code. Name the project in
+the first line instead; the CEO sets the Project field on the ticket it creates for
+the engineer. For Peel, a good first one:
 
 ```
-Add a pytest smoke test for Peel.
+Project: peel. Add a pytest smoke test for Peel.
 Context: the code is flat modules in src/ (no package, no pyproject), so nothing imports
 until src/ is on sys.path. The GUI is PySide6; the main window is peel_gui.MainWindow;
 constructing it must not load or download any rembg model.
@@ -226,8 +229,10 @@ Done means: the test is collected and passes under qa-run.sh, nothing else in th
 changes. Branch: devco/<ticket-id>-pytest-smoke.
 ```
 
-Watch the whole loop: CEO → pyro → QA → PR on GitHub → Reviewer (comment +
-`reviewer-approved` label) → Watchdog → CEO report → you merge → you close the ticket.
+Watch the whole loop: CEO routes it (a child ticket on pyro, Project peel, Reviewer
+and Watchdog attached; the CEO's own task goes `blocked` on it) → pyro → QA → PR on
+GitHub → Reviewer (comment + `reviewer-approved` label) → Watchdog → CEO report → you
+merge → you close the ticket.
 Fix whatever breaks in the wiring before giving it anything real.
 
 ## Phase 6 — lock down (5 min)

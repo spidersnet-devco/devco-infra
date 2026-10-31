@@ -38,6 +38,15 @@ Paste `devco versions` here after each phase, with the date.
   own upstream npm-audit items. `create-profiles.sh` filters those out and reports
   anything else. `hermes chat` also auto-starts one host gateway daemon per box that
   serves every profile and exits when idle — that is Hermes 0.22 behaviour, not ours.
+- 2026-10-31 — first ticket (SPI-1, Project peel, assigned to the CEO): the CEO did the
+  work itself in the peel checkout in one minute — test written, nothing committed, no
+  PR, no engineer, no Reviewer, no Watchdog. Paperclip's own skill tells every agent to
+  "start concrete work in the same heartbeat", and a Project on the task put Sonnet in
+  the repo with a numbered ticket. Fixed three ways: the CEO's harness now has no editor
+  and no commit/push/PR commands (`extraArgs --disallowedTools`), its AGENTS.md has an
+  explicit routing procedure (child ticket + blocker), and board tasks to the CEO carry
+  no Project (README Phase 5). The stray files/branch were removed from the checkout and
+  SPI-1 was cancelled; the loop was re-run as a fresh task.
 - 2026-10-31 — the board's own SSH key is not on the box yet (no key on the GitHub
   account at install time); SSH is password-only until one is added.
 

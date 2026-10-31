@@ -7,7 +7,17 @@
     "command": "__HOME__/.local/bin/claude",
     "engine": "cli",
     "model": "claude-sonnet-5-5",
-    "maxTurnsPerRun": 30
+    "maxTurnsPerRun": 30,
+    "extraArgs": [
+      "--disallowedTools",
+      "Edit",
+      "Write",
+      "NotebookEdit",
+      "MultiEdit",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(gh pr create *)"
+    ]
   },
   "runtimeConfig": {
     "heartbeat": {

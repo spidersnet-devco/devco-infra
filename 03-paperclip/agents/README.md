@@ -66,6 +66,14 @@ Two details that are easy to break (both verified against Paperclip's adapter so
   profile's) to see that a model and key are configured; without it every junior is
   created paused with "No LLM API keys found".
 
+The CEO is the other one that is easy to break, in the opposite direction: a capable
+model dropped into a checkout with a concrete ticket will just do the work. So the CEO
+runs with `--disallowedTools Edit Write NotebookEdit MultiEdit "Bash(git commit *)"
+"Bash(git push *)" "Bash(gh pr create *)"` (`extraArgs` in its `agent.json`; a bare tool
+name removes the tool from the model entirely, permission mode or not), its AGENTS.md
+spells out the routing procedure step by step, and tasks from the board carry **no
+Project** so the CEO never runs inside a repo (README Phase 5).
+
 ## The harness check
 
 Paperclip verifies every agent it creates with a real check of its harness (CLI present,
