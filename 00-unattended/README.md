@@ -72,11 +72,17 @@ https://raw.githubusercontent.com/spidersnet-devco/devco-infra/main/00-unattende
 or skip the wait by using the commit SHA instead of `main` in the kernel line below.
 The SHA form also pins the install to exactly the revision you reviewed.
 
-## 3. Make the installer stick (on your PC)
+## 3. Make the installer stick (on your PC) — or use the JetKVM
 
 Download **Ubuntu Server 26.04.1 LTS** (`ubuntu-26.04.1-live-server-amd64.iso`, 2.7 GB) and
 write it to a USB with Rufus (GPT, UEFI non-CSM, ISO mode) or `dd`. Nothing custom
 goes on it; it's the stock installer.
+
+With a **JetKVM** on the box there is no stick at all: upload the ISO to the JetKVM's
+storage, **Virtual Media → Mount as CD/DVD**, and boot from it (the box sees a USB
+CD-ROM). Everything below is the same. At the installer's final "remove the
+installation medium" prompt, click **Unmount** in the Virtual Media panel instead of
+pulling a stick. You also get a console for watching the first-boot reboots.
 
 ## 4. Boot
 
