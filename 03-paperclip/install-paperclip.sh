@@ -23,17 +23,15 @@ fi
 
 echo "==> Paperclip CLI"
 if ! command -v paperclipai >/dev/null 2>&1; then
-  TMP="$(mktemp -d)"; cd "$TMP"
-  curl -fsSLO https://paperclip.ing/install.sh
-  curl -fsSLO https://paperclip.ing/install.sh.sha256
-  sha256sum -c install.sh.sha256
-  # --no-prompt: non-interactive (a piped/unattended run aborts without it)
-  # --no-onboard: do NOT fall into the interactive wizard; we onboard below with flags
-  # PAPERCLIP_INSTALL_VERSION pins a release when set in devco.env (recorded in versions.txt)
-  INSTALL_ARGS=(--no-prompt --no-onboard)
-  [[ -n "${PAPERCLIP_INSTALL_VERSION:-}" ]] && INSTALL_ARGS+=(--version "$PAPERCLIP_INSTALL_VERSION")
-  bash install.sh "${INSTALL_ARGS[@]}"
-  cd "$HERE"
+  # Not via paperclip.ing/install.sh: on 2026-10-31 that script passed --no-prompt to the
+  # published CLI (2026.1023.0), which only knows --yes -> "error: unknown option".
+  # Doing what the script does ourselves avoids the mismatch: npx the published CLI and
+  # let its `install` put the managed copy under ~/.paperclip and a shim in ~/.local/bin
+  # (--yes also adds ~/.local/bin to PATH in ~/.bashrc without asking).
+  # PAPERCLIP_INSTALL_VERSION pins a release when set in devco.env (recorded in versions.txt).
+  SPEC="paperclipai@${PAPERCLIP_INSTALL_VERSION:-latest}"
+  echo "    npx --yes $SPEC install --yes"
+  npx --yes "$SPEC" install --yes
 fi
 export PATH="$HOME/.local/bin:$PATH"
 paperclipai --version
