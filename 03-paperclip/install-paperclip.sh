@@ -47,10 +47,13 @@ else
   # --install-service makes it install + start the background service instead.
   PAPERCLIP_NO_BROWSER=1 paperclipai onboard --yes --bind lan --install-service
 fi
-paperclipai allowed-hostname "$DEVCO_LAN_IP" >/dev/null 2>&1 || true
-paperclipai allowed-hostname "$(hostname)" >/dev/null 2>&1 || true
-paperclipai allowed-hostname "$(hostname).local" >/dev/null 2>&1 || true
-paperclipai service status || true
+# Allowed hostnames are read at server start, so restart after adding them.
+echo "==> Allowed hostnames: $DEVCO_LAN_IP $(hostname) $(hostname).local"
+for h in "$DEVCO_LAN_IP" "$(hostname)" "$(hostname).local"; do
+  paperclipai allowed-hostname "$h" 2>&1 | tail -n 1 || true
+done
+paperclipai service restart >/dev/null 2>&1 || true
+paperclipai service status | grep -E '"(installed|active|ok)"' || true
 for _ in $(seq 1 45); do curl -fsS "$PAPERCLIP_URL/api/health" >/dev/null 2>&1 && break; sleep 2; done
 if curl -fsS "$PAPERCLIP_URL/api/health" >/dev/null 2>&1; then
   echo "    Paperclip answers at $PAPERCLIP_URL"
