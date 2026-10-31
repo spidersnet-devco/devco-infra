@@ -182,8 +182,18 @@ fi
 TZ_NAME="$(timedatectl show -p Timezone --value 2>/dev/null || echo UTC)"
 WATCHDOG_ID="$(agent_id_by_name Watchdog)"; OPS_ID="$(agent_id_by_name ops)"
 mk_routine() {  # mk_routine <title> <assignee-id> <cron> <description-file>
-  local title="$1" who="$2" cron="$3" body="$4" rid
-  PCC routine list --json 2>/dev/null | jq -e --arg t "$title" '.[] | select(.title==$t)' >/dev/null && { say "Routine exists: $title"; return 0; }
+  local title="$1" who="$2" cron="$3" body="$4" rid tid tz
+  rid="$(PCC routine list --json 2>/dev/null | jq -r --arg t "$title" '[.[] | select(.title==$t)][0].id // empty')"
+  if [[ -n "$rid" ]]; then
+    # Exists: make sure its schedule runs in the box's current time zone (the box may
+    # have been on UTC when the routine was first created).
+    (( DRY )) && { say "Routine exists: $title"; return 0; }
+    PC routine get "$rid" --json | jq -r '.triggers[]? | select(.kind=="schedule") | "\(.id) \(.timezone)"' | while read -r tid tz; do
+      [[ -n "$tid" && "$tz" != "$TZ_NAME" ]] || continue
+      PC routine trigger:update "$tid" --payload-json "$(jq -n --arg z "$TZ_NAME" '{timezone:$z}')" >/dev/null && say "Routine exists: $title (schedule moved from $tz to $TZ_NAME)"
+    done
+    say "Routine exists: $title"; return 0
+  fi
   say "Creating routine: $title  ($cron $TZ_NAME -> $who)"
   (( DRY )) && return 0
   rid="$(PCC routine create --payload-json "$(jq -n --arg t "$title" --arg a "$who" --arg p "$OPS_PROJECT_ID" --rawfile d "$body" \
