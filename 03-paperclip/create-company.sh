@@ -125,11 +125,12 @@ upsert_agent() {  # upsert_agent <agent-dir>
   # permissions:update wants the full record
   PC agent permissions:update "$id" --payload-json \
      "$(jq -c '{canCreateAgents: (.canCreateAgents // false), canCreateSkills: (.canCreateSkills // false), canAssignTasks: (.canAssignTasks // true)} + (if .authorizationPolicy then {authorizationPolicy} else {} end)' <<<"$perms")" >/dev/null
-  local cur lstate lerr
+  local cur lerr
   cur="$(PC agent get "$id" --json)"
-  lstate="$(jq -r '.lifecycleState // ""' <<<"$cur")"; lerr="$(jq -r '.lifecycleError // ""' <<<"$cur")"
-  if [[ -n "$lerr" || "$lstate" == "verifying" ]]; then
-    # a failed harness check: ask Paperclip to run it again (resume is refused in this state)
+  lerr="$(jq -r '.lifecycleError // ""' <<<"$cur")"
+  if [[ -n "$lerr" ]]; then
+    # a failed harness check: ask Paperclip to run it again (resume is refused in this state).
+    # A bare "verifying" state with no error is a check still in progress: leave it alone.
     api POST "/api/agents/$id/lifecycle/retry" >/dev/null 2>&1 && say "  retrying $name's harness check" || true
   elif [[ "$paused" == "true" ]]; then
     PC agent pause "$id" >/dev/null 2>&1 || true

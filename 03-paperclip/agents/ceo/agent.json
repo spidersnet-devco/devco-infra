@@ -4,14 +4,30 @@
   "role": "ceo",
   "adapterType": "claude_local",
   "adapterConfig": {
+    "command": "__HOME__/.local/bin/claude",
     "engine": "cli",
     "model": "claude-sonnet-5-5",
     "maxTurnsPerRun": 30
   },
   "runtimeConfig": {
-    "heartbeat": { "enabled": false, "intervalSec": 300, "wakeOnDemand": true, "skipTimerWhenNoActionableWork": true, "cooldownSec": 10, "maxConcurrentRuns": 1 }
+    "heartbeat": {
+      "enabled": false,
+      "intervalSec": 300,
+      "wakeOnDemand": true,
+      "skipTimerWhenNoActionableWork": true,
+      "cooldownSec": 10,
+      "maxConcurrentRuns": 1
+    }
   },
-  "permissions": { "canCreateAgents": true, "canCreateSkills": false, "canAssignTasks": true },
-  "instructions": ["AGENTS.md", "HEARTBEAT.md", "SOUL.md"],
+  "permissions": {
+    "canCreateAgents": true,
+    "canCreateSkills": false,
+    "canAssignTasks": true
+  },
+  "instructions": [
+    "AGENTS.md",
+    "HEARTBEAT.md",
+    "SOUL.md"
+  ],
   "paused": false
 }

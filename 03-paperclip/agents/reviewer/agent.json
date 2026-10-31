@@ -5,13 +5,27 @@
   "reportsTo": "__CEO_ID__",
   "adapterType": "codex_local",
   "adapterConfig": {
+    "command": "__HOME__/.npm-global/bin/codex",
     "engine": "cli",
     "maxTurnsPerRun": 40
   },
   "runtimeConfig": {
-    "heartbeat": { "enabled": false, "intervalSec": 300, "wakeOnDemand": true, "skipTimerWhenNoActionableWork": true, "cooldownSec": 10, "maxConcurrentRuns": 1 }
+    "heartbeat": {
+      "enabled": false,
+      "intervalSec": 300,
+      "wakeOnDemand": true,
+      "skipTimerWhenNoActionableWork": true,
+      "cooldownSec": 10,
+      "maxConcurrentRuns": 1
+    }
   },
-  "permissions": { "canCreateAgents": false, "canCreateSkills": false, "canAssignTasks": true },
-  "instructions": ["AGENTS.md"],
+  "permissions": {
+    "canCreateAgents": false,
+    "canCreateSkills": false,
+    "canAssignTasks": true
+  },
+  "instructions": [
+    "AGENTS.md"
+  ],
   "paused": false
 }

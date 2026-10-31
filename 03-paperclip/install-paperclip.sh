@@ -47,6 +47,17 @@ else
   # --install-service makes it install + start the background service instead.
   PAPERCLIP_NO_BROWSER=1 paperclipai onboard --yes --bind lan --install-service
 fi
+# The service runs with systemd's minimal PATH, so it cannot find claude (~/.local/bin),
+# codex/pi (~/.npm-global/bin) or the company tools (/opt/devco/bin), and neither can the
+# agents' shells, which inherit the server's environment. A drop-in fixes both.
+echo "==> PATH drop-in for the Paperclip service (claude, codex, pi, hermes, /opt/devco/bin)"
+mkdir -p "$HOME/.config/systemd/user/paperclipai.service.d"
+cat > "$HOME/.config/systemd/user/paperclipai.service.d/10-devco-path.conf" <<EOF
+[Service]
+Environment=PATH=$HOME/.npm-global/bin:$HOME/.local/bin:/opt/devco/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+EOF
+systemctl --user daemon-reload
+
 # Allowed hostnames are read at server start, so restart after adding them.
 echo "==> Allowed hostnames: $DEVCO_LAN_IP $(hostname) $(hostname).local"
 for h in "$DEVCO_LAN_IP" "$(hostname)" "$(hostname).local"; do
