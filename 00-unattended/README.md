@@ -128,6 +128,18 @@ sudo systemctl start --no-block devco-bootstrap    # re-runs the current stage; 
 | Model download failed | Hugging Face hiccup. `sudo systemctl start --no-block devco-bootstrap` resumes it; `hf download` picks up where it stopped. |
 | stage 2: one step failed | The log names the step. Each is idempotent; re-run the stage or run that script by hand. |
 
+## Installed by hand instead?
+
+If you went through the normal installer screens (make root use the **whole disk** in
+the storage screen; the default stops at 100 GB), you can still get the same
+first-boot automation afterwards:
+
+```bash
+git clone https://github.com/spidersnet-devco/devco-infra.git ~/devco-infra
+sudo bash ~/devco-infra/00-unattended/bootstrap-manual-install.sh
+tail -f /opt/devco/bootstrap.log        # stage 0 reboots once; stages 1-2 follow on their own
+```
+
 ## Zero USB at all (later, optional)
 
 The one remaining stick can go too: install **netboot.xyz** from Unraid's Community

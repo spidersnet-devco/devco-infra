@@ -104,8 +104,19 @@ Read README.md and CLAUDE.md, run `devco status`, and tell me where the box is. 
 ```
 
 It reads the scripts, runs them, fixes what breaks on this specific box, commits the
-fixes, and tells you when to log in to something. (On a box built by hand instead of
-the unattended install, start at Phase 0 with the same prompt; Claude Code comes from
+fixes, and tells you when to log in to something.
+
+**Installed Ubuntu by hand instead?** Make the root volume use the whole disk in the
+installer's storage screen (the default stops at 100 GB), then after the first login:
+
+```bash
+git clone https://github.com/spidersnet-devco/devco-infra.git ~/devco-infra   # repo must be public, or use a token
+sudo bash ~/devco-infra/00-unattended/bootstrap-manual-install.sh            # same first-boot automation; reboots once
+tail -f /opt/devco/bootstrap.log
+```
+
+That gives a hand-installed box the same Phases 0–3 automation, ending at the same
+place: continue at Phase 2 below. (Claude Code, if you want it before that, comes from
 `curl -fsSL https://claude.ai/install.sh | bash`, never `sudo npm`.)
 
 If you'd rather type the commands yourself, every phase below is still a plain
@@ -311,7 +322,7 @@ docs/first-week.md        what to expect and check in the first week of running 
 devco.env.example         one place for machine-specific values (real copy is never committed)
 bin/devco                 the day-to-day command: status, pause/resume, qa, costs, logs, backup
 bin/backup-devco.sh       Paperclip DB + Hermes profiles + /opt/devco to the NAS
-00-unattended/            user-data, meta-data, devco-bootstrap.sh/.service, README.md
+00-unattended/            user-data, meta-data, devco-bootstrap.sh/.service, bootstrap-manual-install.sh, README.md
 01-base/                  install-base.sh, apply-kernel-params.sh, strix-halo-kernel.md
 02-models/                install-llamacpp.sh, download-models.sh, llama-swap.yaml, llama-swap.service, install-llama-swap.sh
 03-paperclip/             install-paperclip.sh, logins.sh, github-setup.sh, create-company.sh, clone-project.sh, lockdown.sh, pi-models.json
