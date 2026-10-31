@@ -57,6 +57,28 @@ later by editing one gateway config (see `05-expansion/`).
   bot; you merge.
 - ~90 GB of NVMe for models, plus whatever your repos need.
 
+## Fastest path: the unattended install
+
+`00-unattended/` turns the OS install, Phase 0, the reboot, and Phase 1 into "plug in
+two USB sticks, type `yes` once, come back in an hour." The box boots into a running
+model gateway with no typing on it at all. Read `00-unattended/README.md`; if you use
+it, skip to **Phase 2** below.
+
+The ladder of automation, for reference:
+
+| Layer | What it removes | Status |
+|---|---|---|
+| Ubuntu autoinstall (`00-unattended/autoinstall.yaml`) | the installer screens, the small-root-partition mistake, user/ssh setup | done |
+| First-boot bootstrap (`devco-bootstrap.service`) | Phase 0, the kernel-param reboot, Phase 1 (build, 80 GB download, gateway) | done |
+| `03-paperclip/logins.sh` | hunting for the four login commands; batches them as device codes you do from your phone | done |
+| Claude Code on the box driving Phases 2–5 | typing the remaining scripts, fixing what breaks | done (`CLAUDE.md`) |
+| Paperclip company **export/import** | re-clicking the mission, settings, agents, routines on a rebuild | after the first full setup: Board → Settings → Export, commit the package here as `03-paperclip/company-export/` |
+| Hermes profile **distributions** | re-seeding SOUL/skills on another machine | after the juniors have learned something worth keeping: `hermes profile export <name>` |
+
+What never gets automated: the four logins (Claude, Codex, gh as the bot, Paperclip
+claim), creating the GitHub bot account, approving hires, and merging PRs. Those are
+the points where a human is the feature.
+
 ## How to run this runbook: let Claude Code drive
 
 This repo is meant to be executed by Claude Code **on the box**, with you supervising
@@ -100,8 +122,9 @@ bash 01-base/install-base.sh
 nano /opt/devco/devco.env                  # DEVCO_LAN_IP, GIT_MIRROR_DIR at minimum
 ```
 
-Then `01-base/strix-halo-kernel.md` (kernel parameters) and **reboot**. Verify
-`mem_info_gtt_total` shows ~128 GB before going further; nothing below works otherwise.
+Then `bash 01-base/apply-kernel-params.sh && sudo reboot` (what it does and why:
+`01-base/strix-halo-kernel.md`). Verify `mem_info_gtt_total` shows ~128 GB before going
+further; nothing below works otherwise.
 
 ## Phase 1 — models (1–2 h, mostly download)
 
@@ -120,10 +143,16 @@ Both `coder-accurate` and `coder-fast` should show as running.
 bash 03-paperclip/install-paperclip.sh
 ```
 
-Then the by-hand steps it prints: claim the instance in the browser, `claude` and
-`codex login` **on the box**, set the mission (`agents/company-mission.md`), turn on
-hire approval, paste `agents/ceo-AGENTS.md` into the CEO's AGENTS.md, set the CEO's
-model to `sonnet`.
+Then the logins, all four from your phone in one sitting:
+
+```bash
+bash 03-paperclip/github-setup.sh          # creates the bot's SSH key first
+bash 03-paperclip/logins.sh                # Claude, Codex, gh-as-bot, Paperclip claim
+```
+
+Then the UI steps: set the mission (`agents/company-mission.md`), turn on hire
+approval, paste `agents/ceo-AGENTS.md` into the CEO's AGENTS.md, set the CEO's model
+to `sonnet`.
 
 Why Sonnet for the CEO: it wakes every time a subtask reports back. Sonnet draws far
 less of your weekly limit per wake than Opus, and planning tickets for your own
@@ -262,9 +291,10 @@ from `ops` routines based on backlog. Agents don't change.
 ```
 CLAUDE.md                         rules for Claude Code when it runs this repo on the box
 devco.env.example                 one place for machine-specific values (real copy is never committed)
-01-base/     install-base.sh, strix-halo-kernel.md
+00-unattended/ autoinstall.yaml, devco-bootstrap.sh, devco-bootstrap.service, README.md
+01-base/     install-base.sh, apply-kernel-params.sh, strix-halo-kernel.md
 02-models/   install-llamacpp.sh, download-models.sh, llama-swap.yaml, llama-swap.service, install-llama-swap.sh
-03-paperclip/ install-paperclip.sh, github-setup.sh, clone-project.sh, pi-models.json,
+03-paperclip/ install-paperclip.sh, github-setup.sh, logins.sh, clone-project.sh, pi-models.json,
              agents/company-mission.md, agents/ceo-AGENTS.md, agents/github-access.md,
              agents/hire-tickets/*.md,
              routines/qa-run.sh, routines/routines.md, routines/mirror-repos.sh, routines/mirror-repos.timer.md,
