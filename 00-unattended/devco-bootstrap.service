@@ -1,4 +1,4 @@
-# Installed by autoinstall.yaml to /etc/systemd/system/devco-bootstrap.service
+# Installed by 00-unattended/user-data (late-commands) to /etc/systemd/system/devco-bootstrap.service
 # (@@USER@@ is replaced with the real username at install time).
 #
 # Runs the staged first-boot bootstrap as the user, once per boot, until the
