@@ -54,7 +54,7 @@ vulkaninfo --summary | grep -i 8060S
 ## 4. Kernel / Mesa versions
 
 - Kernel **6.14 or newer** (6.18-class is what the community benchmarks use).
-- Mesa **25.x** for a RADV that knows gfx1151. Fedora 42+ and Ubuntu 25.04+ are fine out
+- Mesa **25.x** for a RADV that knows gfx1151. Fedora 42+ and Ubuntu 26.04 LTS are fine out
   of the box. Ubuntu 24.04 LTS needs the HWE kernel plus a newer Mesa.
 - linux-firmware **20260110 or newer** (one earlier release broke ROCm on this chip).
 

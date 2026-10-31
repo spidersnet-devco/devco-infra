@@ -55,7 +55,7 @@ https://raw.githubusercontent.com/spidersnet-devco/devco-infra/main/00-unattende
 
 ## 2. Make the installer stick (on your PC)
 
-Download Ubuntu Server **25.10** (amd64) and write it to a USB with Rufus (Windows) or
+Download Ubuntu Server **26.04 LTS** (amd64, the 3 GB "Intel or AMD 64-bit" image) and write it to a USB with Rufus (Windows) or
 `dd`. Nothing custom goes on it; it's the stock installer.
 
 ## 3. Boot

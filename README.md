@@ -46,8 +46,8 @@ later by editing one gateway config (see `05-expansion/`).
 
 ## Prerequisites
 
-- MS-S1 Max running **Linux**: Ubuntu 25.10 Server or Fedora 43 Server (kernel 6.14+,
-  Mesa 25+). Avoid Ubuntu 24.04 LTS on this chip. At install time, make root use the
+- MS-S1 Max running **Linux**: Ubuntu 26.04 LTS Server (kernel 7.0) or Fedora 43+ (kernel 6.14+,
+  Mesa 25+). Avoid Ubuntu 24.04 on this chip; 26.04 LTS is the one to use. At install time, make root use the
   **whole 2 TB** (the installer defaults to a small root volume). Everything runs as your
   normal user with systemd user services and linger enabled.
 - Accounts: Claude Max (Claude Code login), ChatGPT Plus (Codex login). No API keys

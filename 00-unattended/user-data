@@ -3,7 +3,7 @@
 # Ubuntu Server unattended install for the MS-S1 Max ("hermes").
 #
 # The installer fetches this file straight from GitHub. Boot a stock Ubuntu
-# Server 25.10 USB, press `e` at the GRUB menu, and add to the `linux` line:
+# Server 26.04 LTS USB, press `e` at the GRUB menu, and add to the `linux` line:
 #
 #   autoinstall 'ds=nocloud-net;s=https://raw.githubusercontent.com/spidersnet-devco/devco-infra/main/00-unattended/'
 #

@@ -56,5 +56,5 @@ Fedora notes:
   dnf install -y vulkan-headers vulkan-loader-devel mesa-vulkan-drivers cmake gcc-c++ git \
                  python3-pip pipx nodejs npm libcurl-devel
   (Fedora 42+ ships a Mesa new enough for the Radeon 8060S; on Ubuntu you want
-   25.04 or newer, or 24.04 with the HWE stack and a Mesa 25 PPA.)
+   26.04 LTS or newer; 24.04 would need the HWE stack and a Mesa 25 PPA.)
 EOF
