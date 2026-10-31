@@ -91,7 +91,10 @@ if a["adapterType"] == "hermes_local":
     assert a["adapterConfig"]["env"]["HERMES_HOME"].endswith(d.name), "HERMES_HOME must point at the profile"
     assert a["adapterConfig"]["model"] == "coder-accurate"
 if d.name in ("principal-engineer", "chief-architect"):
-    assert a["permissions"]["authorizationPolicy"]["assignmentPolicy"]["mode"] == "protected"
+    # Reachable by the CEO up the ladder (board decision 2026-10-31); not paused, not protected.
+    assert "authorizationPolicy" not in a["permissions"] and a["paused"] is False
+if d.name == "ceo":
+    assert "--disallowedTools" in a["adapterConfig"].get("extraArgs", []), "CEO must have no editor"
 PY
   # the same jq the script uses, with placeholders filled
   check "agent $n: rendered payload is valid JSON with a bundle" bash -c "

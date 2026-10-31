@@ -23,15 +23,10 @@
   "permissions": {
     "canCreateAgents": false,
     "canCreateSkills": false,
-    "canAssignTasks": true,
-    "authorizationPolicy": {
-      "assignmentPolicy": {
-        "mode": "protected"
-      }
-    }
+    "canAssignTasks": true
   },
   "instructions": [
     "AGENTS.md"
   ],
-  "paused": true
+  "paused": false
 }

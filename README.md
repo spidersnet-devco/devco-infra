@@ -17,8 +17,8 @@ later by editing one gateway config (see `05-expansion/`).
                  │  MS-S1 Max  (Ryzen AI Max+ 395, 128 GB unified)                 │
                  │                                                                │
   you (board) ──▶│  Paperclip :3100 ──┬─ CEO              Claude Code  sonnet-5-5  │── Max 20x
-  phone/laptop   │  (control plane)   ├─ Principal Eng    Claude Code  opus-5-5    │── Max 20x  [protected]
-                 │                    ├─ Chief Architect  Claude Code  fable-5-1   │── Max 20x  [protected, paused]
+  phone/laptop   │  (control plane)   ├─ Principal Eng    Claude Code  opus-5-5    │── Max 20x  [escalation only]
+                 │                    ├─ Chief Architect  Claude Code  fable-5-1   │── Max 20x  [last resort]
                  │                    ├─ Reviewer         Codex                    │── ChatGPT Plus
                  │                    ├─ Watchdog         Pi ─────────────┐        │
                  │                    ├─ pyro             Hermes profile ─┤        │
@@ -42,14 +42,16 @@ later by editing one gateway config (see `05-expansion/`).
 |---|---|---|---|---|
 | 1 | pyro, webby, ops | Hermes Agent → `coder-accurate` (local) | nothing | first pass on everything |
 | 2 | Reviewer | Codex | ChatGPT Plus | reviews every PR; medium tasks |
-| 3 | Principal Engineer | Claude Code `claude-opus-5-5` | Max 20x | hard tasks; a junior failed; **only you can assign to it** |
-| 4 | Chief Architect | Claude Code `claude-fable-5-1` | Max 20x (50 % cap, burns faster) | Principal failed, or project-shaping design; **only you can assign**; works from a brief; starts paused |
+| 3 | Principal Engineer | Claude Code `claude-opus-5-5` | Max 20x | hard tasks; a junior failed; the CEO escalates with a brief |
+| 4 | Chief Architect | Claude Code `claude-fable-5-1` | Max 20x (50 % cap, burns faster) | Principal failed, or project-shaping design; the CEO escalates from a brief |
 | — | CEO | Claude Code `claude-sonnet-5-5` | Max 20x | writes tickets, routes, reports; never codes; no timer |
 | — | Watchdog | Pi → `coder-fast` (local) | nothing | verifies "done" claims |
 | — | QA | `/opt/devco/bin/qa-run.sh` | nothing | lint + tests, every hand-back, nightly |
 
-"Protected" is a real Paperclip gate: no agent, the CEO included, can hand those two
-work. The CEO writes a brief and asks you in your Inbox; you assign.
+The CEO climbs the ladder on its own: a junior gets one attempt, then the Principal,
+then the Architect, each with a brief on the ticket and a comment to you. If you would
+rather hand the top two rungs out yourself, set `assignmentPolicy.mode = "protected"`
+on them (`03-paperclip/agents/README.md`).
 
 ## Prerequisites
 
@@ -249,8 +251,8 @@ pushes to `main`. `sudo devco unlock` undoes it for maintenance.
 
 ## Protecting your Max plan (the whole point)
 
-- CEO on `claude-sonnet-5-5`; Principal (Opus) and Architect (Fable) are **protected**
-  (only you can assign) and never on timer heartbeats. The Architect starts paused.
+- CEO on `claude-sonnet-5-5`; Principal (Opus) and Architect (Fable) run only when the
+  CEO escalates up the ladder (one junior attempt first), never on timer heartbeats.
 - **`devco pause` before you code interactively**, `devco resume` after. The two
   Claude-backed engineers draw from the same 5-hour window you do. Let them run overnight.
 - Turn on **usage credits with a monthly cap** on your Claude account (Settings → Usage;

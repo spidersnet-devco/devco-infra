@@ -13,8 +13,8 @@ in git, so the setup is repeatable and reviewable.
 | `pyro/` | pyro | Hermes profile, `coder-accurate` (local) | free | Python / PySide6 |
 | `webby/` | webby | Hermes profile, `coder-accurate` (local) | free | web / single-file HTML |
 | `ops/` | ops | Hermes profile, `coder-accurate` (local) | free | Docker / homelab / CI |
-| `principal-engineer/` | Principal Engineer | Claude Code, **claude-opus-5-5** | your Max plan | **protected**: only you can assign |
-| `chief-architect/` | Chief Architect | Claude Code, **claude-fable-5-1** | your Max plan (50 % cap) | **protected**: only you can assign; starts paused |
+| `principal-engineer/` | Principal Engineer | Claude Code, **claude-opus-5-5** | your Max plan | CEO escalates after a junior failed (ladder rules in `ceo/AGENTS.md`) |
+| `chief-architect/` | Chief Architect | Claude Code, **claude-fable-5-1** | your Max plan (50 % cap) | CEO escalates after the Principal failed, or for project-shaping design; works from a brief |
 
 Each folder has:
 
@@ -27,11 +27,13 @@ Each folder has:
 
 ## How the gates actually work (verified against Paperclip's source, Oct 2026)
 
-- **Protected agents.** `authorizationPolicy.assignmentPolicy.mode = "protected"` makes
-  Paperclip refuse any *agent* (the CEO included) that tries to assign a task to the
-  Principal or the Architect; you, as the board, still can. This is a hard block at
-  assignment time, which is what we want. An "Approver" on a task's execution policy
-  is **not** a start gate: it only runs after the executor finishes.
+- **Escalation is a rule, not a gate.** The CEO may assign to the Principal and the
+  Architect; its AGENTS.md ladder says when (junior failed → Principal; Principal failed
+  or project-shaping design → Architect, from a brief). If you ever want a hard block
+  instead, `authorizationPolicy.assignmentPolicy.mode = "protected"` on an agent makes
+  Paperclip refuse any *agent* (the CEO included) that tries to assign to it; you, as the
+  board, still can. An "Approver" on a task's execution policy is **not** a start gate:
+  it only runs after the executor finishes.
 - **Hiring.** The CEO keeps the ability to propose hires, but the company setting
   "Require board approval for new hires" is on, so a hire waits in Approvals.
 - **Budgets.** Since Paperclip v2026.1023 any budget blocks *unpriced* usage by default.

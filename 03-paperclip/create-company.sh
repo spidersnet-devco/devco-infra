@@ -14,7 +14,7 @@
 #     revenue-and-hiring defaults; company goal carrying the mission
 #   - "Require board approval for new hires" ON
 #   - every agent with timers OFF, wake-on-demand ON, max 1 concurrent run
-#   - Principal + Architect PROTECTED (no agent, CEO included, can assign to them)
+#   - Principal + Architect reachable by the CEO only up the ladder (rules in ceo/AGENTS.md)
 #   - Architect created paused
 #   - company budget: warn-only, and local-model (unpriced) usage ALLOWED
 #   - an "ops" project (this repo's clone) for the routines, with serialized
@@ -248,8 +248,8 @@ cat <<EOF
 =====================================================================
 Company built. Check it:  http://$DEVCO_LAN_IP:3100
   Agents           CEO (Sonnet), Reviewer (Codex), Watchdog (Pi/local),
-                   pyro, webby, ops (Hermes/local), Principal (Opus, protected),
-                   Chief Architect (Fable, protected, paused)
+                   pyro, webby, ops (Hermes/local), Principal (Opus, escalation),
+                   Chief Architect (Fable, last resort)
   Routines         Nightly QA sweep 02:10, Daily standup 07:40 weekdays,
                    Weekly skills review Sun 09:00  (all $TZ_NAME, all local models)
   Costs            Company -> Costs shows the Claude and ChatGPT quota windows

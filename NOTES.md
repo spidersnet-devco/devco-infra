@@ -66,6 +66,11 @@ Paste `devco versions` here after each phase, with the date.
 - 2026-10-31 — 124 GiB GTT (not 128): leaves 4 GiB the GPU cannot pin, so a runaway
   allocation fails cleanly instead of OOM-killing the host.
 
+- 2026-10-31 — the board opened the Principal and the Chief Architect to the CEO
+  (no `protected` assignment policy, Architect not paused) so hard work climbs the
+  ladder without a human in the loop. The ladder rules in `ceo/AGENTS.md` are now the
+  only brake on Max-plan spend; `devco pause` still parks all Claude-backed agents.
+
 ## Things to check after the first week
 
 See `docs/first-week.md`.
