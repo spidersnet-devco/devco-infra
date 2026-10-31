@@ -39,7 +39,8 @@ sed -i '/^paperclip=/d' /opt/devco/versions.txt 2>/dev/null || true
 echo "paperclip=$(paperclipai --version 2>/dev/null | head -1) ($(date +%F))" >> /opt/devco/versions.txt
 
 echo "==> Onboard: quickstart defaults, reachable on the LAN (authenticated/private mode), as a user service"
-if paperclipai service status >/dev/null 2>&1; then
+# `service status` exits 0 even when nothing is installed; read its JSON instead.
+if paperclipai service status 2>/dev/null | grep -qE '"installed": *true'; then
   echo "    service already installed; leaving config alone"
 else
   # --yes alone would start the server in the FOREGROUND and never return;
@@ -50,8 +51,13 @@ paperclipai allowed-hostname "$DEVCO_LAN_IP" >/dev/null 2>&1 || true
 paperclipai allowed-hostname "$(hostname)" >/dev/null 2>&1 || true
 paperclipai allowed-hostname "$(hostname).local" >/dev/null 2>&1 || true
 paperclipai service status || true
-for _ in $(seq 1 30); do curl -fsS "$PAPERCLIP_URL/api/health" >/dev/null 2>&1 && break; sleep 2; done
-curl -fsS "$PAPERCLIP_URL/api/health" >/dev/null 2>&1 && echo "    Paperclip answers at $PAPERCLIP_URL" || echo "!! Paperclip is not answering yet at $PAPERCLIP_URL (check: paperclipai service status)"
+for _ in $(seq 1 45); do curl -fsS "$PAPERCLIP_URL/api/health" >/dev/null 2>&1 && break; sleep 2; done
+if curl -fsS "$PAPERCLIP_URL/api/health" >/dev/null 2>&1; then
+  echo "    Paperclip answers at $PAPERCLIP_URL"
+else
+  echo "!! Paperclip is not answering at $PAPERCLIP_URL. Check: paperclipai service status ; paperclipai doctor"
+  exit 1
+fi
 
 echo "==> Harness CLIs this box runs for Paperclip"
 # Codex and Pi via npm, into the user prefix set by install-base.sh (never sudo npm).
