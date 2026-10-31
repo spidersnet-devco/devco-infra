@@ -1,65 +1,92 @@
-# Unattended install: USB in, models serving out
+# Unattended install, pulled from GitHub
 
-Boot the box from an Ubuntu Server USB with a second small USB stick plugged in, answer
-one prompt, walk away. About an hour later (most of it the 80 GB model download) the box
-is sitting at the end of README Phase 1: kernel parameters applied, llama.cpp built,
-both models resident on the gateway. No typing on the box at all.
+Boot the box from a stock Ubuntu Server USB, type one line at the boot menu, walk
+away. About an hour later (most of it the 80 GB model download) the box is sitting at
+the end of README Phase 1: kernel parameters applied, llama.cpp built, both models
+resident on the gateway. The installer reads its answers from this folder on GitHub;
+nothing is typed on the box and there is no second USB stick.
 
-What it replaces: the OS install screens, Phase 0, the reboot, and Phase 1.
-What it can't replace: the browser logins in Phase 2+ (`03-paperclip/logins.sh`
-batches them).
+What it replaces: the installer screens, Phase 0, the reboot, and Phase 1.
+What it can't replace: the installer stick itself, and the browser logins in Phase 2+
+(`03-paperclip/logins.sh` batches those).
 
-## 1. Make the two USB sticks (on your PC)
+## 0. The repo must be public
 
-**Stick A, the installer:** download Ubuntu Server 25.10 (amd64) and write it to a USB
-with Rufus (Windows) or `dd` (Linux/Mac). Nothing else goes on this stick.
+The installer fetches `user-data` from `raw.githubusercontent.com`, which only works
+for public repos without credentials. This repo holds no secrets (every `.env` and the
+real `devco.env` are gitignored), and `user-data` contains only your username, your SSH
+*public* key, and a throwaway password hash. Repo → Settings → General → Danger Zone →
+**Change visibility → Public**.
 
-**Stick B, the answers:** any small USB stick, formatted **FAT32** with the volume label
-**`CIDATA`** (exactly that, uppercase). Two files in its root:
+If you'd rather keep it private, the same `user-data` works from a second USB stick
+labeled `CIDATA` (put `user-data` and `meta-data` in its root), with one extra
+`late-command` to clone using a token. That's the old method; ask if you need it.
 
-- `meta-data` — an empty file (zero bytes)
-- `user-data` — a copy of `autoinstall.yaml` with the four placeholders filled in
+## 1. Fill in the three placeholders
 
-## 2. Fill in the placeholders
+`user-data` has three `__PLACEHOLDERS__`. `__USERNAME__` appears many times; replace
+every occurrence. Easiest is Claude Code on your PC, in your clone of this repo:
 
-Open `autoinstall.yaml` in a text editor and find-and-replace all four. `__USERNAME__`
-appears many times; replace every occurrence.
+```
+In 00-unattended/user-data replace every __USERNAME__ with geoff, __SSH_PUBLIC_KEY__
+with the single line from ~/.ssh/id_ed25519.pub (create the key with
+ssh-keygen -t ed25519 if it doesn't exist), and __PASSWORD_HASH__ with the output of
+`openssl passwd -6` for a throwaway password you generate and show me once. Confirm
+the file still starts with #cloud-config and parses as YAML, then commit and push.
+```
 
-| Placeholder | Value | How to get it |
+By hand instead:
+
+| Placeholder | Value | How |
 |---|---|---|
-| `__USERNAME__` | your Linux username on the box, e.g. `geoff` | lowercase, no spaces |
-| `__PASSWORD_HASH__` | a SHA-512 hash of your password | on your PC: `openssl passwd -6` (Git Bash on Windows has it), paste the whole `$6$...` string |
-| `__SSH_PUBLIC_KEY__` | your PC's public key, one line starting `ssh-ed25519` | `cat ~/.ssh/id_ed25519.pub`; if you have none: `ssh-keygen -t ed25519` |
-| `__REPO_TOKEN__` | a GitHub token that can read this repo | below |
+| `__USERNAME__` | your Linux username, e.g. `geoff` | lowercase, no spaces |
+| `__SSH_PUBLIC_KEY__` | your PC's public key, one line starting `ssh-ed25519` | `cat ~/.ssh/id_ed25519.pub` (Git Bash on Windows works) |
+| `__PASSWORD_HASH__` | SHA-512 hash of a *throwaway* password | `openssl passwd -6`, paste the whole `$6$...` string |
 
-**The token.** GitHub → Settings → Developer settings → Personal access tokens →
-**Fine-grained tokens** → Generate new token. Resource owner: `spidersnet-devco`.
-Repository access: only `devco-infra`. Permissions: Contents **Read-only**. Expiration:
-**1 day**. Copy it into `__REPO_TOKEN__`. The bootstrap removes it from the box after
-cloning and it expires anyway; delete the token on GitHub once the box is up.
+The password only matters at the physical console: SSH is key-only and sudo is
+passwordless. Change it after your first login with `passwd`.
 
-Save the result as `user-data` on stick B. The file must start with `#cloud-config` on
-line 1.
+Push, then **wait about five minutes**: GitHub's raw file cache lags behind pushes.
+Check in a browser that this URL shows your filled-in file:
+
+```
+https://raw.githubusercontent.com/spidersnet-devco/devco-infra/main/00-unattended/user-data
+```
+
+## 2. Make the installer stick (on your PC)
+
+Download Ubuntu Server **25.10** (amd64) and write it to a USB with Rufus (Windows) or
+`dd`. Nothing custom goes on it; it's the stock installer.
 
 ## 3. Boot
 
-1. Plug both sticks in, boot the MS-S1 Max from stick A (F7 or Del for the boot menu,
-   depending on the firmware).
-2. The installer finds stick B and asks **"Continue with autoinstall? (yes/no)"**.
-   Type `yes`. That is the only interaction. It then **erases the internal NVMe**.
-3. ~10 minutes: the box reboots. Pull stick A when it does (stick B can stay or go).
-4. 1st boot: base packages, kernel params, reboot again (~5 min).
-5. 2nd boot: llama.cpp build, model download, gateway up (~40–60 min, mostly download).
+1. Plug the stick into the MS-S1 Max, boot from it (F7 or Del for the boot menu,
+   depending on the firmware). Make sure the box is on a wired port with DHCP.
+2. At the GRUB menu, highlight **Try or Install Ubuntu Server** and press **`e`**.
+3. Find the line starting with `linux`. Put the cursor just before `---` on that line
+   and type (one line, including the quotes):
+
+   ```
+   autoinstall 'ds=nocloud-net;s=https://raw.githubusercontent.com/spidersnet-devco/devco-infra/main/00-unattended/'
+   ```
+
+   (The trailing slash matters. Older guides write the semicolon as `\;` instead of
+   using quotes; either works.)
+4. Press **Ctrl-X**. That's the whole interaction. The installer fetches `user-data`,
+   **erases the internal NVMe**, installs, and reboots in ~10 minutes. Pull the stick
+   when it reboots.
+5. 1st boot: base packages, kernel params, reboot again (~5 min).
+6. 2nd boot: llama.cpp build, model download, gateway up (~40–60 min, mostly download).
 
 Watch from your PC:
 
 ```bash
-ssh <username>@hermes.local          # or the IP from your router
+ssh geoff@hermes.local               # or the IP from your router's DHCP list
 tail -f /opt/devco/bootstrap.log
 ```
 
 Done when the log says `stage 1 done` and `http://127.0.0.1:8080/ui` (tunnel:
-`ssh -L 8080:127.0.0.1:8080 <username>@hermes.local`) shows both models running.
+`ssh -L 8080:127.0.0.1:8080 geoff@hermes.local`) shows both models running.
 
 ## If it stops
 
@@ -70,19 +97,25 @@ Done when the log says `stage 1 done` and `http://127.0.0.1:8080/ui` (tunnel:
 sudo systemctl start devco-bootstrap      # re-runs the current stage
 ```
 
-Common ones:
-
 | Symptom | Cause |
 |---|---|
-| "Continue with autoinstall?" never appears | Stick B isn't labeled `CIDATA`, or `user-data` doesn't start with `#cloud-config` |
-| Installer stops at a storage error | Another disk is present; the `match: size: largest` picked the wrong one. Unplug it. |
-| stage 0 FAILED: no network | The 10 GbE port needs a driver the installer lacked, or the box is on the Wi-Fi only. Plug into the port that worked during install. |
+| Installer shows its normal screens instead of running on its own | The kernel line didn't take, or the URL 404s. Check the raw URL in a browser; mind the trailing slash. |
+| "autoinstall config did not validate" | A placeholder is still there, or the YAML broke. The raw URL in a browser shows what the installer saw. |
+| Installer stops at a storage error | Another disk is present; `match: size: largest` picked the wrong one. Unplug it. |
+| stage 0 FAILED: no network | Box is on Wi-Fi only, or the 10 GbE port that worked during install isn't the one plugged in now. |
 | stage 1 FAILED: GTT | Kernel params didn't take. `cat /proc/cmdline` should show `amdgpu.gttsize`. See `01-base/strix-halo-kernel.md`. |
-| Model download failed | Hugging Face hiccup. `sudo systemctl start devco-bootstrap` resumes the download. |
+| Model download failed | Hugging Face hiccup. `sudo systemctl start devco-bootstrap` resumes it. |
+
+## Zero USB at all (later, optional)
+
+The one remaining stick can go too: install **netboot.xyz** from Unraid's Community
+Apps and point your router's DHCP boot options (66/67) at it. The box then PXE-boots
+the Ubuntu installer over the LAN, and netboot.xyz lets you set the same `autoinstall`
+kernel argument once in its menu. It's a separate afternoon; not needed for the first
+build.
 
 ## What's deliberately NOT automated
 
-- The password hash and token go on a USB stick you hold. Wipe stick B afterwards.
 - `/etc/sudoers.d/90-devco` grants passwordless sudo to your user so the bootstrap can
   run unattended. Keep it (convenient for a homelab box) or delete it when done.
 - Everything from Phase 2 on needs your logins and your approvals. See the README.

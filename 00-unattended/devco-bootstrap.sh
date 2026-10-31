@@ -48,8 +48,8 @@ case "$STAGE" in
     log "stage 0: kernel parameters"
     bash 01-base/apply-kernel-params.sh
 
-    # The installer may have saved the autoinstall config (with the repo token
-    # and password hash) into the installed system. Remove it.
+    # The installer saves a copy of the autoinstall config into the installed
+    # system; it holds the (throwaway) password hash, so remove it anyway.
     sudo rm -f /var/log/installer/autoinstall-user-data 2>/dev/null || true
 
     echo 1 > "$STAGE_FILE"

@@ -59,16 +59,17 @@ later by editing one gateway config (see `05-expansion/`).
 
 ## Fastest path: the unattended install
 
-`00-unattended/` turns the OS install, Phase 0, the reboot, and Phase 1 into "plug in
-two USB sticks, type `yes` once, come back in an hour." The box boots into a running
-model gateway with no typing on it at all. Read `00-unattended/README.md`; if you use
-it, skip to **Phase 2** below.
+`00-unattended/` turns the OS install, Phase 0, the reboot, and Phase 1 into "boot a
+stock Ubuntu USB, type one line at the boot menu, come back in an hour." The installer
+pulls its answers from this repo on GitHub (which is why the repo is public), and the
+box boots into a running model gateway with nothing else typed on it. Read
+`00-unattended/README.md`; if you use it, skip to **Phase 2** below.
 
 The ladder of automation, for reference:
 
 | Layer | What it removes | Status |
 |---|---|---|
-| Ubuntu autoinstall (`00-unattended/autoinstall.yaml`) | the installer screens, the small-root-partition mistake, user/ssh setup | done |
+| Ubuntu autoinstall pulled from GitHub (`00-unattended/user-data`) | the installer screens, the answers USB stick, the small-root-partition mistake, user/ssh setup | done |
 | First-boot bootstrap (`devco-bootstrap.service`) | Phase 0, the kernel-param reboot, Phase 1 (build, 80 GB download, gateway) | done |
 | `03-paperclip/logins.sh` | hunting for the four login commands; batches them as device codes you do from your phone | done |
 | Claude Code on the box driving Phases 2–5 | typing the remaining scripts, fixing what breaks | done (`CLAUDE.md`) |
@@ -77,7 +78,8 @@ The ladder of automation, for reference:
 
 What never gets automated: the four logins (Claude, Codex, gh as the bot, Paperclip
 claim), creating the GitHub bot account, approving hires, and merging PRs. Those are
-the points where a human is the feature.
+the points where a human is the feature. (The last USB stick can go too, with
+netboot.xyz on the NAS; see the end of `00-unattended/README.md`.)
 
 ## How to run this runbook: let Claude Code drive
 
@@ -291,7 +293,7 @@ from `ops` routines based on backlog. Agents don't change.
 ```
 CLAUDE.md                         rules for Claude Code when it runs this repo on the box
 devco.env.example                 one place for machine-specific values (real copy is never committed)
-00-unattended/ autoinstall.yaml, devco-bootstrap.sh, devco-bootstrap.service, README.md
+00-unattended/ user-data, meta-data, devco-bootstrap.sh, devco-bootstrap.service, README.md
 01-base/     install-base.sh, apply-kernel-params.sh, strix-halo-kernel.md
 02-models/   install-llamacpp.sh, download-models.sh, llama-swap.yaml, llama-swap.service, install-llama-swap.sh
 03-paperclip/ install-paperclip.sh, github-setup.sh, logins.sh, clone-project.sh, pi-models.json,

@@ -2,10 +2,20 @@
 # =============================================================================
 # Ubuntu Server unattended install for the MS-S1 Max ("hermes").
 #
-# Fill in the four placeholders (see README.md in this folder), put this
-# file on a USB stick labeled CIDATA as `user-data` next to an empty `meta-data`,
-# boot the Ubuntu 25.10 Server installer with that stick also plugged in, and
-# answer "yes" to the one "continue with autoinstall?" prompt.
+# The installer fetches this file straight from GitHub. Boot a stock Ubuntu
+# Server 25.10 USB, press `e` at the GRUB menu, and add to the `linux` line:
+#
+#   autoinstall 'ds=nocloud-net;s=https://raw.githubusercontent.com/spidersnet-devco/devco-infra/main/00-unattended/'
+#
+# then Ctrl-X. No other interaction. See README.md in this folder.
+#
+# This file is PUBLIC (the repo is public so the installer can fetch it), so it
+# contains nothing secret: a username, an SSH *public* key, and the hash of a
+# THROWAWAY password that only matters at the physical console (SSH is key-only,
+# sudo is passwordless). Change it after first login with `passwd`.
+#
+# Fill in the three placeholders, commit, push, wait ~5 min for GitHub's raw
+# cache, then boot.
 #
 # ~10 minutes later the box reboots into a system that, on its own:
 #   1st boot : installs base packages, writes /opt/devco/devco.env with the real
@@ -14,7 +24,7 @@
 #              llama-swap gateway and starts serving coder-accurate + coder-fast
 # Progress: /opt/devco/bootstrap.log   (tail -f it over ssh)
 #
-# WARNING: this ERASES the first/largest disk in the machine.
+# WARNING: this ERASES the largest disk in the machine without asking.
 # =============================================================================
 autoinstall:
   version: 1
@@ -26,7 +36,7 @@ autoinstall:
   identity:
     hostname: hermes
     username: __USERNAME__             # e.g. geoff  (becomes DEVCO_USER)
-    password: "__PASSWORD_HASH__"      # output of:  openssl passwd -6
+    password: "__PASSWORD_HASH__"      # throwaway; output of:  openssl passwd -6
 
   ssh:
     install-server: true
@@ -59,9 +69,8 @@ autoinstall:
     # 1. Passwordless sudo for the bootstrap (remove /etc/sudoers.d/90-devco later if you like)
     - echo '__USERNAME__ ALL=(ALL) NOPASSWD:ALL' > /target/etc/sudoers.d/90-devco
     - chmod 0440 /target/etc/sudoers.d/90-devco
-    # 2. Clone this repo. The token is a fine-grained PAT with read-only Contents on
-    #    spidersnet-devco/devco-infra; it is deleted from the box after the clone.
-    - curtin in-target --target=/target -- bash -c 'git clone https://__REPO_TOKEN__@github.com/spidersnet-devco/devco-infra.git /home/__USERNAME__/devco-infra && git -C /home/__USERNAME__/devco-infra remote set-url origin https://github.com/spidersnet-devco/devco-infra.git && chown -R __USERNAME__:__USERNAME__ /home/__USERNAME__/devco-infra'
+    # 2. Clone this (public) repo; no token needed
+    - curtin in-target --target=/target -- bash -c 'git clone https://github.com/spidersnet-devco/devco-infra.git /home/__USERNAME__/devco-infra && chown -R __USERNAME__:__USERNAME__ /home/__USERNAME__/devco-infra'
     # 3. Install the first-boot bootstrap service (runs as the user, needs linger)
     - curtin in-target --target=/target -- bash -c 'mkdir -p /opt/devco && chown __USERNAME__:__USERNAME__ /opt/devco && echo 0 > /opt/devco/.bootstrap-stage && chown __USERNAME__:__USERNAME__ /opt/devco/.bootstrap-stage'
     - curtin in-target --target=/target -- bash -c 'install -m 0755 /home/__USERNAME__/devco-infra/00-unattended/devco-bootstrap.sh /usr/local/sbin/devco-bootstrap.sh'
