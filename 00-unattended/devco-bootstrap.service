@@ -1,12 +1,12 @@
 # Installed by 00-unattended/user-data (late-commands) to /etc/systemd/system/devco-bootstrap.service
-# (@@USER@@ is replaced with the real username at install time).
+# (@@USER@@ and @@UID@@ are replaced with the real username and uid at install time).
 #
 # Runs the staged first-boot bootstrap as the user, once per boot, until the
 # stage file says "done". Oneshot: a failure stops the chain and leaves the log.
 [Unit]
 Description=devco first-boot bootstrap (staged)
-After=network-online.target user@1000.service
-Wants=network-online.target user@1000.service
+After=network-online.target cloud-init.target user@@@UID@@.service
+Wants=network-online.target user@@@UID@@.service
 ConditionPathExists=!/opt/devco/.bootstrap-done
 
 [Service]
@@ -14,11 +14,10 @@ Type=oneshot
 User=@@USER@@
 Group=@@USER@@
 Environment=HOME=/home/@@USER@@
-Environment=XDG_RUNTIME_DIR=/run/user/1000
-Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+Environment=XDG_RUNTIME_DIR=/run/user/@@UID@@
+Environment=DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a
 WorkingDirectory=/home/@@USER@@/devco-infra
 ExecStart=/usr/local/sbin/devco-bootstrap.sh
-TimeoutStartSec=infinity
 StandardOutput=append:/opt/devco/bootstrap.log
 StandardError=append:/opt/devco/bootstrap.log
 

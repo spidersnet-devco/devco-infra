@@ -1,18 +1,29 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/mostlygeek/llama-swap/refs/heads/main/config-schema.json
 #
-# llama-swap config for the MS-S1 Max model gateway.
+# llama-swap config for the MS-S1 Max model gateway (127.0.0.1:8080).
 #
 # Agents never ask for a model by name. They ask for a ROLE:
-#   coder-accurate  -> best local model      (gpt-oss-120b, MXFP4)
-#   coder-fast      -> quick lane            (Qwen3-Coder-30B-A3B, Q4_K_M)
+#   coder-accurate  -> best local model     gpt-oss-120b, MXFP4 (63 GB)
+#   coder-fast      -> quick lane           Qwen3.6-35B-A3B, UD-Q4_K_XL (22 GB), thinking off
 #
-# Both stay loaded at once (group below). Memory budget on 128 GB unified:
-#   gpt-oss-120b weights ~61 GB + KV (3 slots x 64K, q8_0) ~4 GB
-#   Qwen3-Coder-30B weights ~18 GB + KV (2 slots x 64K, q8_0) ~6 GB
-#   = ~89 GB for inference, ~39 GB left for OS, Paperclip, Hermes, builds.
-# If that is too tight, set swap: true in the group and only one loads at a time.
+# Both stay loaded at once (group below). Memory on 128 GB unified, decimal GB:
+#   gpt-oss-120b   63.4 weights + 3.9 KV (3 slots x 64K, q8_0) + ~2.5 compute
+#   Qwen3.6-35B    22.4 weights + ~2   KV (4 slots x 64K, q8_0) + ~1.5 compute
+#   prompt caches  2 x 2 GiB (--cache-ram 2048)
+#   = ~100 GB (~93 GiB) for inference; ~30 GiB left for OS, Paperclip, Hermes,
+#   builds. install-base.sh adds a 16 GB swapfile as OOM insurance.
+# Too tight? Set swap: true in the group and only one model is resident at a time.
+#
+# Flags verified against llama.cpp master (Oct 2026) and llama-swap v268:
+#   --load-mode none   resident load; replaces the removed --no-mmap (kyuz0's
+#                      Strix Halo recommendation, avoids mmap slowdowns/crashes)
+#   -fa on             flash attention (needs an explicit value now)
+#   q8_0 KV cache      halves KV memory; Vulkan FA supports it
+#   --cache-ram 2048   per-process prompt cache cap (default 8192 MiB!)
+#   tool calling       --jinja is the default now; nothing to add
+#   proxy 127.0.0.1    llama-server binds 127.0.0.1, so skip the ::1 attempt
 
-healthCheckTimeout: 900        # cold load of 61 GB from NVMe takes a while
+healthCheckTimeout: 900        # cold load of 63 GB from NVMe takes a while
 logLevel: info
 logToStdout: proxy
 startPort: 10001
@@ -20,33 +31,29 @@ sendLoadingState: false
 metricsMaxInMemory: 2000
 
 macros:
-  # Common llama-server flags for Strix Halo (Vulkan).
-  #   -ngl 99        everything on the iGPU
-  #   -fa on         flash attention (saves memory at long context)
-  #   --jinja        REQUIRED for tool calling
-  #   --no-mmap      avoids mmap slowdowns on unified memory
-  #   q8_0 KV cache  halves KV memory with negligible quality loss
   "llama": >
     /opt/llama.cpp/bin/llama-server --host 127.0.0.1 --port ${PORT}
-    -ngl 99 -fa on --jinja --no-mmap
+    -ngl 99 -fa on --load-mode none
     --cache-type-k q8_0 --cache-type-v q8_0
-    -ub 2048 -b 2048 --metrics
+    -ub 2048 -b 2048 --cache-ram 2048 --metrics
 
-  # Paths printed by 02-models/download-models.sh — adjust if the filenames differ.
-  "gptoss_gguf": "/opt/models/gpt-oss-120b/gpt-oss-120b-mxfp4-00001-of-00003.gguf"
-  "qwen_gguf":   "/opt/models/qwen3-coder-30b-a3b/Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf"
+  # Filled in by 02-models/install-llama-swap.sh from what download-models.sh fetched.
+  "gptoss_gguf": "/opt/models/gpt-oss-120b/gpt-oss-120b-MXFP4.gguf"
+  "qwen36_gguf": "/opt/models/qwen3.6-35b-a3b/Qwen3.6-35B-A3B-UD-Q4_K_XL.gguf"
 
 models:
   "coder-accurate":
     name: "coder-accurate (gpt-oss-120b MXFP4)"
     description: "Accuracy tier. Juniors' default, review-grade work."
+    proxy: "http://127.0.0.1:${PORT}"
     # Total context is split across slots: 196608 / 3 = 65536 per slot,
     # which is the minimum Hermes Agent accepts per session.
+    # Sampling per OpenAI/llama.cpp guidance: temp 1.0, top-p 1.0, default top-k.
     cmd: |
       ${llama}
       --model ${gptoss_gguf}
       --ctx-size 196608 --parallel 3
-      --temp 1.0 --top-p 1.0 --min-p 0.0 --top-k 0
+      --temp 1.0 --top-p 1.0 --min-p 0.0
     ttl: 0
     aliases:
       - "gpt-oss-120b"
@@ -69,21 +76,72 @@ models:
       context: 65536
 
   "coder-fast":
-    name: "coder-fast (Qwen3-Coder-30B-A3B Q4_K_M)"
-    description: "Fast lane. Watchdog, trivial tickets, scaffolding, lint fixes."
+    name: "coder-fast (Qwen3.6-35B-A3B UD-Q4_K_XL, no thinking)"
+    description: "Fast lane. Watchdog, trivial tickets, scaffolding, lint fixes, Hermes side tasks."
+    proxy: "http://127.0.0.1:${PORT}"
+    # Hybrid GatedDeltaNet/attention MoE: KV is tiny (10 of 40 layers attend), so
+    # 4 slots x 64K costs ~2 GB. Sampling = Qwen's non-thinking recommendation.
+    # Prompt cache reuse happens at context checkpoints, not arbitrary prefixes.
     cmd: |
       ${llama}
-      --model ${qwen_gguf}
-      --ctx-size 131072 --parallel 2
-      --temp 0.7 --top-p 0.8 --top-k 20 --repeat-penalty 1.05
+      --model ${qwen36_gguf}
+      --ctx-size 262144 --parallel 4
+      --temp 0.7 --top-p 0.8 --top-k 20 --min-p 0.0 --presence-penalty 1.5
     ttl: 0
     aliases:
-      - "qwen3-coder-30b"
+      - "qwen3.6-35b-a3b"
+    filters:
+      setParamsByID:
+        # Default: thinking OFF (fast, short answers). coder-fast:think turns it on.
+        "${MODEL_ID}":
+          chat_template_kwargs:
+            enable_thinking: false
+        "${MODEL_ID}:think":
+          chat_template_kwargs:
+            enable_thinking: true
     capabilities:
       in: [text]
       out: [text]
       tools: true
       context: 65536
+
+  # --- Alternatives (download with  02-models/download-models.sh --extra <name>) ---
+  #
+  # Previous fast lane (Qwen3-Coder-30B-A3B-Instruct Q4_K_M, 18.6 GB). To use it,
+  # rename this block to "coder-fast", comment the one above, and swap the preload.
+  # "coder-fast-qwen3coder":
+  #   proxy: "http://127.0.0.1:${PORT}"
+  #   cmd: |
+  #     ${llama}
+  #     --model /opt/models/qwen3-coder-30b-a3b/Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf
+  #     --ctx-size 131072 --parallel 2
+  #     --temp 0.7 --top-p 0.8 --top-k 20 --repeat-penalty 1.05
+  #   ttl: 0
+  #   capabilities: {in: [text], out: [text], tools: true, context: 65536}
+  #
+  # A/B candidate for the ACCURATE lane: Qwen3.6-35B-A3B UD-Q8_K_XL (38.5 GB) with
+  # thinking ON. Vendor-reported SWE-bench Verified 73.4 vs gpt-oss-120b 62.0; frees
+  # ~25 GB. Benchmark on your own tickets before switching; gpt-oss stays the
+  # proven fallback. (--extra qwen36-q8)
+  # "coder-accurate-qwen36":
+  #   proxy: "http://127.0.0.1:${PORT}"
+  #   cmd: |
+  #     ${llama}
+  #     --model /opt/models/qwen3.6-35b-a3b/Qwen3.6-35B-A3B-UD-Q8_K_XL.gguf
+  #     --ctx-size 262144 --parallel 4
+  #     --temp 0.6 --top-p 0.95 --top-k 20 --min-p 0.0
+  #   ttl: 0
+  #   filters:
+  #     setParamsByID:
+  #       "${MODEL_ID}": {chat_template_kwargs: {enable_thinking: true}}
+  #   capabilities: {in: [text], out: [text], tools: true, context: 65536}
+  #
+  # Speculative decoding for gpt-oss (free tokens/s on a bandwidth-bound box; the
+  # 849 MB EAGLE-3 draft is in the same HF repo: --extra eagle3). Add to the
+  # coder-accurate cmd and compare acceptance rates in the upstream log:
+  #     --spec-type draft-eagle3 -md /opt/models/gpt-oss-120b/eagle3-gpt-oss-120b-Q8_0.gguf --spec-draft-n-max 3
+  # Zero-download alternative that helps code-edit loops:
+  #     --spec-type ngram-mod --spec-ngram-mod-n-match 24 --spec-ngram-mod-n-min 48 --spec-ngram-mod-n-max 64
 
 routing:
   router:
@@ -106,15 +164,22 @@ hooks:
       - "coder-fast"
 
 # ---------------------------------------------------------------------------
-# EXPANSION (Athena): llama-swap can proxy to another llama-swap/vLLM as a
-# "peer". When Athena is up, uncomment and point the fast lane at it:
+# EXPANSION (Athena). llama-swap can proxy to another llama-swap as a "peer".
+# A selector with strategy "warm" is NOT the way: it is rejected for peer
+# targets. Use a PROFILE that pins the role alias to the peer, switched on by
+# the wake script (PUT /api/profiles/active {"name":"athena"}) and off by the
+# sleep script ({"name":null}). A gateway restart selects no profile, so it
+# falls back to local on its own. Details: 05-expansion/athena-fast-lane.md
 #
 # peers:
 #   athena:
 #     proxy: http://athena.lan:8080
-#     models:
-#       - coder-fast-gpu
-#
-# Then either change Hermes/Pi configs to ask for "athena/coder-fast-gpu", or
-# keep the alias stable with a selector (see 05-expansion/athena-fast-lane.md).
+#     apiKey: ${env.ATHENA_GATEWAY_KEY}      # config load FAILS if the env var is unset
+#     models: [coder-fast-gpu]
+#     timeouts: {connect: 5, responseHeader: 120}
+# profiles:
+#   athena:
+#     description: "Fast lane served by Athena's RTX PRO 5000"
+#     pins:
+#       coder-fast: "athena/coder-fast-gpu"
 # ---------------------------------------------------------------------------

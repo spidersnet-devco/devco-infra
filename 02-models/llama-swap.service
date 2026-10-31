@@ -2,8 +2,6 @@
 # Installed by 02-models/install-llama-swap.sh
 [Unit]
 Description=llama-swap model gateway (devco)
-After=network-online.target
-Wants=network-online.target
 
 [Service]
 Type=simple
@@ -11,8 +9,9 @@ ExecStart=/opt/llama-swap/llama-swap -config /opt/llama-swap/config.yaml -listen
 WorkingDirectory=/opt/llama-swap
 Restart=always
 RestartSec=5
-# llama-server reads models from /opt/models; nothing else needs env here.
 Environment=HOME=%h
+# Peer secrets (Athena) go in a mode-600 file, never in this unit:
+#EnvironmentFile=%h/.config/llama-swap.env
 LimitNOFILE=65536
 
 [Install]

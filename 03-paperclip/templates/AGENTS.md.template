@@ -1,0 +1,22 @@
+# __NAME__ — notes for agents
+
+<!-- The first engineer to work here fills this in and commits it with their PR. -->
+
+## What this is
+(one paragraph)
+
+## How to run it
+```
+# command(s)
+```
+
+## How to test it
+```
+/opt/devco/bin/qa-run.sh .
+```
+
+## Layout
+(top-level folders and what lives where)
+
+## Do not touch
+(generated files, vendored code, anything the board owns)

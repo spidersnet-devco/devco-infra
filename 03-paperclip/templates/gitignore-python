@@ -20,6 +20,11 @@ htmlcov/
 *.key
 *.pem
 
+# Agent tooling
+.claude/worktrees/
+.claude/settings.local.json
+.paperclip/
+
 # Editors / OS
 .vscode/
 .idea/

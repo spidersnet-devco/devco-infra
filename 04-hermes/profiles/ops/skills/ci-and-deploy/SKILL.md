@@ -1,6 +1,6 @@
 ---
 name: ci-and-deploy
-description: Writing CI workflows, deploy scripts, systemd units and backup jobs the company way. Use for tickets about GitHub Actions, cron, deploy, backup, or "make this run on a schedule".
+description: CI workflows, deploy scripts, systemd units, backups
 version: 1.0.0
 author: devco
 license: MIT
@@ -50,7 +50,7 @@ systemd timer, or a service unit.
    `systemctl --user daemon-reload && systemctl --user enable --now <job>.timer`
 3. **GitHub Actions**: one workflow per concern (`ci.yml`, `release.yml`), pinned
    action versions (`actions/checkout@v4`), cache the package manager, run the
-   same commands `/opt/devco/qa-run.sh` runs so CI and local agree.
+   same commands `/opt/devco/bin/qa-run.sh` runs so CI and local agree.
 4. **Deploys** are pull-based: the NAS pulls the tagged image/branch; nothing
    pushes into the NAS from CI. The deploy script validates (`compose config`),
    backs up, applies, verifies (healthcheck), and prints a rollback command.

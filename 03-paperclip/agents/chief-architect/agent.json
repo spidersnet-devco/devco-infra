@@ -1,0 +1,21 @@
+{
+  "name": "Chief Architect",
+  "title": "Chief Architect",
+  "role": "cto",
+  "reportsTo": "__CEO_ID__",
+  "adapterType": "claude_local",
+  "adapterConfig": {
+    "engine": "cli",
+    "model": "claude-fable-5-1",
+    "maxTurnsPerRun": 40
+  },
+  "runtimeConfig": {
+    "heartbeat": { "enabled": false, "intervalSec": 300, "wakeOnDemand": true, "skipTimerWhenNoActionableWork": true, "cooldownSec": 10, "maxConcurrentRuns": 1 }
+  },
+  "permissions": {
+    "canCreateAgents": false, "canCreateSkills": false, "canAssignTasks": true,
+    "authorizationPolicy": { "assignmentPolicy": { "mode": "protected" } }
+  },
+  "instructions": ["AGENTS.md"],
+  "paused": true
+}

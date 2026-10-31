@@ -1,6 +1,6 @@
 ---
 name: compose-conventions
-description: How Docker Compose stacks are written and laid out at Spidersnet Dev Co. (Unraid appdata layout, env files, healthchecks, networks). Use for any ticket that touches a compose file or a container.
+description: How Dev Co. writes and lays out Compose stacks
 version: 1.0.0
 author: devco
 license: MIT
@@ -49,7 +49,7 @@ docker compose -f stacks/<name>/compose.yml pull         # staging box only
    add it to `.env.example` with a placeholder and say so in the hand-back.
 7. **Resource limits** (`mem_limit`, `cpus`) on anything that can run away (media
    transcoders, AI workloads).
-8. Validate with `docker compose config -q`, run `/opt/devco/qa-run.sh`, hand back
+8. Validate with `docker compose config -q`, run `/opt/devco/bin/qa-run.sh`, hand back
    with the diff and a one-paragraph "what changes when this is deployed".
 9. **Deploying** is a separate, board-approved ticket. You do not deploy as part
    of writing the change.

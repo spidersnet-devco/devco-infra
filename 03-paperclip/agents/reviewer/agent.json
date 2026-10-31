@@ -1,0 +1,17 @@
+{
+  "name": "Reviewer",
+  "title": "Code Reviewer",
+  "role": "qa",
+  "reportsTo": "__CEO_ID__",
+  "adapterType": "codex_local",
+  "adapterConfig": {
+    "engine": "cli",
+    "maxTurnsPerRun": 40
+  },
+  "runtimeConfig": {
+    "heartbeat": { "enabled": false, "intervalSec": 300, "wakeOnDemand": true, "skipTimerWhenNoActionableWork": true, "cooldownSec": 10, "maxConcurrentRuns": 1 }
+  },
+  "permissions": { "canCreateAgents": false, "canCreateSkills": false, "canAssignTasks": true },
+  "instructions": ["AGENTS.md"],
+  "paused": false
+}

@@ -1,0 +1,22 @@
+{
+  "name": "Principal Engineer",
+  "title": "Principal Engineer",
+  "role": "engineer",
+  "reportsTo": "__CEO_ID__",
+  "adapterType": "claude_local",
+  "adapterConfig": {
+    "engine": "cli",
+    "model": "claude-opus-5-5",
+    "effort": "high",
+    "maxTurnsPerRun": 60
+  },
+  "runtimeConfig": {
+    "heartbeat": { "enabled": false, "intervalSec": 300, "wakeOnDemand": true, "skipTimerWhenNoActionableWork": true, "cooldownSec": 10, "maxConcurrentRuns": 1 }
+  },
+  "permissions": {
+    "canCreateAgents": false, "canCreateSkills": false, "canAssignTasks": true,
+    "authorizationPolicy": { "assignmentPolicy": { "mode": "protected" } }
+  },
+  "instructions": ["AGENTS.md"],
+  "paused": false
+}

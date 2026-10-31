@@ -1,6 +1,6 @@
 ---
 name: python-packaging-release
-description: Cutting a release of a Python/PySide6 app — version bump, changelog, PyInstaller build, tag. Use when a ticket says release, build, package, installer, or version.
+description: Release a Python/PySide6 app: bump, changelog, build, tag
 version: 1.0.0
 author: devco
 license: MIT

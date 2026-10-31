@@ -1,6 +1,6 @@
 ---
 name: web-repo-conventions
-description: Working in one of the company's web repos — tooling, layout, style, tests. Use before editing HTML/CSS/JS/TS.
+description: Tooling, layout, style and tests in Dev Co. web repos
 version: 1.0.0
 author: devco
 license: MIT

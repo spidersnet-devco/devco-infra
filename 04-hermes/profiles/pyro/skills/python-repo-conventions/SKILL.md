@@ -1,6 +1,6 @@
 ---
 name: python-repo-conventions
-description: Working in one of the company's Python repos — venv, tooling, layout, tests. Use before editing any .py file.
+description: Venv, tooling, layout and tests in Dev Co. Python repos
 version: 1.0.0
 author: devco
 license: MIT

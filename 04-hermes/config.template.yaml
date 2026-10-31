@@ -1,23 +1,25 @@
 # Merged INTO each profile's ~/.hermes/profiles/<name>/config.yaml by
-# create-profiles.sh (keys here override, everything else Hermes seeded stays).
+# create-profiles.sh (keys here override; everything else Hermes seeded stays).
+# Placeholders: __GATEWAY__ __GATEWAY_KEY__ __REPOS__ __REPO__ (this repo's clone) __NAME__
 #
 # Agents ask the gateway for a ROLE alias. Nothing here names a real model, so
-# swapping gpt-oss-120b for something better later is a llama-swap change only.
+# swapping the model behind coder-accurate is a llama-swap change only.
 
 model:
   provider: custom
   default: coder-accurate
   base_url: __GATEWAY__
   api_key: __GATEWAY_KEY__
-  # Per-slot context on the gateway. Hermes refuses anything under 64K.
+  # Per-slot context on the gateway (196608 / 3 slots). Hermes refuses anything under 64K.
   context_length: 65536
 
-# If the accurate model is busy/erroring, fall through to the fast lane for
-# that turn rather than failing the task.
+# If the accurate lane is busy or erroring, fall through to the fast lane for that
+# turn instead of failing the task.
 fallback_providers:
   - provider: custom
     model: coder-fast
     base_url: __GATEWAY__
+    api_key: __GATEWAY_KEY__
 
 # Cheap side tasks go to the fast lane so they never queue behind real work.
 auxiliary:
@@ -25,11 +27,42 @@ auxiliary:
     base_url: __GATEWAY__
     api_key: __GATEWAY_KEY__
     model: coder-fast
+    timeout: 300
   title_generation:
+    enabled: false
+  approval:
+    base_url: __GATEWAY__
+    api_key: __GATEWAY_KEY__
+    model: coder-fast
+  background_review:
     base_url: __GATEWAY__
     api_key: __GATEWAY_KEY__
     model: coder-fast
 
-# Where terminal commands start. Every ticket names a repo under here.
+# Paperclip runs the juniors with --yolo (no TTY to answer prompts), so approvals
+# only matter when you run `pyro chat` yourself. Don't hang for long when they do.
+approvals:
+  timeout: 20
+
+agent:
+  max_turns: 80              # one ticket, not an odyssey; Paperclip also caps the run
+  run_budget_seconds: 3300   # wrap up before Paperclip's 3600 s timeout kills the run
+  verify_on_stop: true       # re-check the ticket's checklist before claiming done
+  reasoning_effort: high
+  # Juniors write code. They do not browse, look at images, generate media,
+  # schedule jobs, drive a desktop, or spawn sub-agents.
+  disabled_toolsets: [browser, vision, image_gen, video_gen, tts, cronjob, computer_use, delegation]
+
+skills:
+  # Company skills come straight from this repo's clone, so `git pull` updates them.
+  external_dirs:
+    - __REPO__/04-hermes/profiles/shared-skills
+    - __REPO__/04-hermes/profiles/__NAME__/skills
+  auto_load: [devco-workflow]
+
+security:
+  redact_secrets: true
+
+# Where terminal commands start when Paperclip gives no workspace (it normally does).
 terminal:
   cwd: __REPOS__

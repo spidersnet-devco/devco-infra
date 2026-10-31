@@ -1,0 +1,142 @@
+#!/usr/bin/env bash
+# devco — the one command for running the company day to day.
+# Installed to /opt/devco/bin/devco by 03-paperclip/install-paperclip.sh.
+#
+#   devco status            everything at a glance: gateway, Paperclip, Hermes, logins, mirror
+#   devco pause             pause the Claude-backed agents (Principal, Architect) before you code
+#   devco resume            resume them when you're done
+#   devco retry             re-run Paperclip's harness check for agents it paused after a failed check
+#   devco qa <repo|--pr URL|--all-main>   run the QA script
+#   devco check-env         sanity-check /opt/devco/devco.env
+#   devco versions          what is installed (llama.cpp, llama-swap, paperclip, claude, codex, hermes)
+#   devco mirror            run the repo mirror now
+#   devco mirror-timer      install the nightly mirror timer
+#   devco backup            back up Paperclip's data + Hermes profiles (see backup-devco.sh)
+#   devco costs             where to see the Claude 5h/7d and ChatGPT quota windows
+#   devco logs <what>       tail logs: gateway | paperclip | bootstrap | mirror
+#   devco unlock            (sudo) undo lockdown.sh's root ownership for maintenance
+set -uo pipefail
+source /opt/devco/devco.env 2>/dev/null || { echo "devco: /opt/devco/devco.env missing"; exit 2; }
+export PATH="$HOME/.npm-global/bin:$HOME/.local/bin:/opt/devco/bin:$PATH"
+BASE="${MODEL_GATEWAY_URL%/v1}"
+PC() { paperclipai "$@" --api-base "$PAPERCLIP_URL"; }   # --api-base is a per-command option, so it goes last
+company_id() { PC company list --json 2>/dev/null | jq -r '.[0].id // empty'; }
+agent_ids_by_names() {  # agent_ids_by_names <company> <name>...
+  local cid="$1"; shift
+  PC agent list --company-id "$cid" --json 2>/dev/null | jq -r --argjson names "$(printf '%s\n' "$@" | jq -R . | jq -s .)" '.[] | select(.name as $n | $names | index($n)) | .id'
+}
+ok()   { printf '  \033[32m✔\033[0m %s\n' "$*"; }
+bad()  { printf '  \033[31m✘\033[0m %s\n' "$*"; }
+meh()  { printf '  \033[33m•\033[0m %s\n' "$*"; }
+
+cmd_status() {
+  echo "Gateway ($BASE)"
+  if out="$(curl -fsS -m 3 "$BASE/running" 2>/dev/null)"; then
+    for m in coder-accurate coder-fast; do
+      st="$(jq -r --arg m "$m" '.running[]? | select(.model==$m) | .state' <<<"$out")"
+      [[ "$st" == "ready" ]] && ok "$m ready" || bad "$m: ${st:-not loaded}"
+    done
+  else bad "not answering (systemctl --user status llama-swap)"; fi
+
+  echo "Paperclip ($PAPERCLIP_URL)"
+  if curl -fsS -m 3 "$PAPERCLIP_URL/api/health" >/dev/null 2>&1; then ok "up"; else bad "down (paperclipai service status)"; fi
+  if PC auth whoami --json >/dev/null 2>&1; then
+    cid="$(company_id)"
+    if [[ -n "$cid" ]]; then
+      PC agent list --company-id "$cid" --json 2>/dev/null | jq -r '.[] | "    \(.name): \(.status) [\(.adapterType)\(if .adapterConfig.model then " " + .adapterConfig.model else "" end)]\(if .lifecycleError then "  <- harness check failed; fix, then: devco retry" else "" end)"'
+    fi
+  else meh "CLI not logged in (paperclipai auth login --api-base $PAPERCLIP_URL)"; fi
+
+  echo "Hermes profiles"
+  for p in pyro webby ops; do [[ -d "$HOME/.hermes/profiles/$p" ]] && ok "$p" || bad "$p missing (04-hermes/create-profiles.sh)"; done
+
+  echo "Logins"
+  claude auth status >/dev/null 2>&1 && ok "claude ($(claude --version 2>/dev/null | head -1))" || meh "claude: not logged in or old CLI (claude auth status)"
+  codex login status >/dev/null 2>&1 && ok "codex" || meh "codex: not logged in (codex login --device-auth)"
+  gh auth status >/dev/null 2>&1 && ok "gh as $(gh api user --jq .login 2>/dev/null)" || meh "gh: not logged in (bot)"
+
+  echo "Mirror"
+  journalctl --user -u mirror-repos -n 1 --no-pager -o cat 2>/dev/null | grep -q . && ok "$(journalctl --user -u mirror-repos -n 1 --no-pager -o cat)" || meh "no mirror run yet (devco mirror-timer)"
+
+  echo "Lockdown"
+  [[ -f /etc/sudoers.d/90-devco ]] && meh "passwordless sudo still on (run lockdown.sh when setup is done)" || ok "passwordless sudo off"
+}
+
+cmd_pause_resume() {  # pause|resume
+  local verb="$1" cid ids
+  cid="$(company_id)"; [[ -n "$cid" ]] || { echo "devco: Paperclip CLI not logged in"; exit 1; }
+  ids="$(agent_ids_by_names "$cid" "Principal Engineer" "Chief Architect")"
+  [[ -n "$ids" ]] || { echo "devco: agents not found"; exit 1; }
+  for id in $ids; do PC agent "$verb" "$id" >/dev/null && echo "  $verb $id"; done
+  [[ "$verb" == "pause" ]] && echo "Claude-backed agents paused. Your interactive Claude Code has the plan to itself. 'devco resume' when done."
+  [[ "$verb" == "resume" ]] && echo "Resumed. Anything they were woken for while paused: re-wake from the task if it doesn't pick up."
+}
+
+cmd_retry() {  # re-run Paperclip's harness check for agents it paused after a failed check
+  local cid tok
+  cid="$(company_id)"; [[ -n "$cid" ]] || { echo "devco: Paperclip CLI not logged in"; exit 1; }
+  tok="$(jq -r --arg b "${PAPERCLIP_URL%/}" '.credentials[$b].token // empty' "$HOME/.paperclip/auth.json" 2>/dev/null || true)"
+  PC agent list --company-id "$cid" --json | jq -r '.[] | select(.lifecycleError != null or .lifecycleState=="verifying") | "\(.id) \(.name)"' | while read -r id name; do
+    [[ -n "$id" ]] || continue
+    curl -fsS -X POST "$PAPERCLIP_URL/api/agents/$id/lifecycle/retry" ${tok:+-H "Authorization: Bearer $tok"} >/dev/null && echo "  retrying $name" || echo "  retry failed for $name"
+  done
+  echo "Paperclip re-runs each agent's hello check now; 'devco status' in a minute shows the result."
+}
+
+cmd_check_env() {
+  local rc=0
+  for v in DEVCO_USER DEVCO_LAN_IP DEVCO_REPOS DEVCO_MODELS GITHUB_ORG GITHUB_BOT_USER MODEL_GATEWAY_URL PAPERCLIP_URL; do
+    [[ -n "${!v:-}" ]] && ok "$v=${!v}" || { bad "$v is empty"; rc=1; }
+  done
+  [[ "$DEVCO_LAN_IP" == "10.86.86.20" ]] && meh "DEVCO_LAN_IP is still the example value"
+  [[ -n "${GITHUB_BOT_NOREPLY:-}" ]] && ok "GITHUB_BOT_NOREPLY set" || meh "GITHUB_BOT_NOREPLY empty (needed before github-setup.sh)"
+  [[ -d "$DEVCO_MODELS" ]] && ok "models dir $DEVCO_MODELS ($(du -sh "$DEVCO_MODELS" 2>/dev/null | cut -f1))" || bad "models dir missing"
+  grep -qE '(_KEY|_TOKEN|_SECRET)=.{12,}' /opt/devco/devco.env && meh "devco.env holds what looks like a secret; see SECRETS.md" || true
+  return $rc
+}
+
+cmd_versions() {
+  cat /opt/devco/versions.txt 2>/dev/null
+  echo "claude=$(claude --version 2>/dev/null | head -1)"
+  echo "codex=$(codex --version 2>/dev/null | head -1)"
+  echo "hermes=$(hermes --version 2>/dev/null | head -1)"
+  echo "node=$(node -v 2>/dev/null)  kernel=$(uname -r)"
+}
+
+cmd_mirror_timer() {
+  mkdir -p ~/.config/systemd/user
+  printf '[Unit]\nDescription=Mirror all %s repos to the NAS\n[Service]\nType=oneshot\nExecStart=/opt/devco/bin/mirror-repos.sh\n' "$GITHUB_ORG" > ~/.config/systemd/user/mirror-repos.service
+  printf '[Unit]\nDescription=Nightly repo mirror\n[Timer]\nOnCalendar=*-*-* 03:30:00\nPersistent=true\n[Install]\nWantedBy=timers.target\n' > ~/.config/systemd/user/mirror-repos.timer
+  systemctl --user daemon-reload && systemctl --user enable --now mirror-repos.timer && systemctl --user list-timers mirror-repos.timer --no-pager
+}
+
+cmd_logs() {
+  case "${1:-}" in
+    gateway)   journalctl --user -u llama-swap -n 100 -f ;;
+    paperclip) paperclipai service logs 2>/dev/null || journalctl --user -u paperclip -n 100 -f ;;
+    bootstrap) tail -n 100 -f /opt/devco/bootstrap.log ;;
+    mirror)    journalctl --user -u mirror-repos -n 50 --no-pager ;;
+    *) echo "devco logs gateway|paperclip|bootstrap|mirror"; exit 2 ;;
+  esac
+}
+
+case "${1:-}" in
+  status)       cmd_status ;;
+  pause)        cmd_pause_resume pause ;;
+  resume)       cmd_pause_resume resume ;;
+  retry)        cmd_retry ;;
+  qa)           shift; exec /opt/devco/bin/qa-run.sh "$@" ;;
+  check-env)    cmd_check_env ;;
+  versions)     cmd_versions ;;
+  mirror)       exec /opt/devco/bin/mirror-repos.sh ;;
+  mirror-timer) cmd_mirror_timer ;;
+  backup)       shift; exec /opt/devco/bin/backup-devco.sh "$@" ;;
+  costs)        cid="$(company_id)"; [[ -n "$cid" ]] || { echo "devco: CLI not logged in"; exit 1; }
+                echo "Company -> Costs in the UI ($PAPERCLIP_URL/costs) shows the Claude 5h/7d and ChatGPT windows for the host logins."
+                echo "CLI view (managed connections only):"; PC cost quota-windows --company-id "$cid" 2>/dev/null | sed 's/^/  /' || true ;;
+  logs)         shift; cmd_logs "$@" ;;
+  unlock)       [[ $EUID -eq 0 ]] || { echo "run with sudo"; exit 1; }
+                chown -R "${DEVCO_USER}:${DEVCO_USER}" /opt/devco/bin /opt/llama-swap/config.yaml /opt/devco/devco.env
+                echo "unlocked for ${DEVCO_USER}. Re-lock with /opt/devco/bin/lockdown.sh" ;;
+  *)            sed -n '2,20p' "$0"; exit 2 ;;
+esac

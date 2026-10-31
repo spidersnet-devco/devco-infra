@@ -1,6 +1,6 @@
 ---
 name: pyside6-patterns
-description: PySide6/Qt patterns the company's desktop apps use — worker threads, signals, settings, dialogs, resources. Use for any ticket touching Qt UI code.
+description: PySide6 patterns: workers, signals, settings, dialogs
 version: 1.0.0
 author: devco
 license: MIT

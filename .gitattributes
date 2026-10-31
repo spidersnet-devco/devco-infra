@@ -1,0 +1,12 @@
+# This repo is edited from Windows and executed on Linux. A CRLF shebang line
+# breaks the first boot, so every text file is checked out with LF endings.
+* text=auto eol=lf
+*.sh text eol=lf
+*.service text eol=lf
+*.timer text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+user-data text eol=lf
+meta-data text eol=lf

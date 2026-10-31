@@ -6,11 +6,18 @@ build/
 .parcel-cache/
 .vite/
 coverage/
+playwright-report/
+test-results/
 
 # Secrets / local config
 .env
 .env.*
 !.env.example
+
+# Agent tooling
+.claude/worktrees/
+.claude/settings.local.json
+.paperclip/
 
 # Editors / OS
 .vscode/

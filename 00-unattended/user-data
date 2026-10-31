@@ -3,25 +3,28 @@
 # Ubuntu Server unattended install for the MS-S1 Max ("hermes").
 #
 # The installer fetches this file straight from GitHub. Boot a stock Ubuntu
-# Server 26.04 LTS USB, press `e` at the GRUB menu, and add to the `linux` line:
+# Server 26.04.1 LTS USB, press `e` at the GRUB menu, and add to the `linux` line:
 #
-#   autoinstall 'ds=nocloud-net;s=https://raw.githubusercontent.com/spidersnet-devco/devco-infra/main/00-unattended/'
+#   autoinstall 'ds=nocloud;s=https://raw.githubusercontent.com/spidersnet-devco/devco-infra/main/00-unattended/'
 #
-# then Ctrl-X. No other interaction. See README.md in this folder.
+# then Ctrl-X. No other interaction. See README.md in this folder. (Replace
+# `main` with a commit SHA to skip GitHub's 5-minute raw cache and pin the exact
+# reviewed revision.)
 #
 # This file is PUBLIC (the repo is public so the installer can fetch it), so it
 # contains nothing secret: a username, an SSH *public* key, and the hash of a
 # THROWAWAY password that only matters at the physical console (SSH is key-only,
-# sudo is passwordless). Change it after first login with `passwd`.
+# sudo is passwordless until lockdown). Change it after first login with `passwd`.
 #
 # Fill in the three placeholders, commit, push, wait ~5 min for GitHub's raw
-# cache, then boot.
+# cache (or use the SHA form), then boot.
 #
 # ~10 minutes later the box reboots into a system that, on its own:
-#   1st boot : installs base packages, writes /opt/devco/devco.env with the real
-#              LAN IP, applies the Strix Halo kernel parameters, reboots
-#   2nd boot : builds llama.cpp, downloads both models (~80 GB), installs the
-#              llama-swap gateway and starts serving coder-accurate + coder-fast
+#   1st boot : base packages, /opt/devco/devco.env with the real LAN IP,
+#              Strix Halo kernel parameters, reboot
+#   2nd boot : builds llama.cpp, downloads both models (~86 GB), starts the
+#              llama-swap gateway, installs Paperclip + Hermes + the profiles
+#              (everything that needs no login)
 # Progress: /opt/devco/bootstrap.log   (tail -f it over ssh)
 #
 # WARNING: this ERASES the largest disk in the machine without asking.
@@ -44,7 +47,19 @@ autoinstall:
     authorized-keys:
       - "__SSH_PUBLIC_KEY__"           # contents of ~/.ssh/id_ed25519.pub on your PC
 
-  # Whole 2 TB on one LVM root. This is the setting the manual install gets wrong.
+  # Either 10 GbE port, DHCP, and don't stall boot waiting for the unplugged one.
+  # (The installer default disables any port that had no cable during install,
+  # so moving the cable later would mean no network. This avoids that.)
+  network:
+    version: 2
+    ethernets:
+      wired:
+        match:
+          name: "en*"
+        dhcp4: true
+        optional: true
+
+  # Whole 2 TB on one LVM root. The default "scaled" policy would stop at 100 GB.
   storage:
     layout:
       name: lvm
@@ -61,12 +76,12 @@ autoinstall:
     - python3-pip
     - python3-venv
     - pipx
-    - openssh-server
+    - avahi-daemon                     # makes `ssh hermes.local` work from your PC
 
   updates: security
 
   late-commands:
-    # 1. Passwordless sudo for the bootstrap (remove /etc/sudoers.d/90-devco later if you like)
+    # 1. Passwordless sudo so the bootstrap can run unattended. 03-paperclip/lockdown.sh removes it later.
     - echo '__USERNAME__ ALL=(ALL) NOPASSWD:ALL' > /target/etc/sudoers.d/90-devco
     - chmod 0440 /target/etc/sudoers.d/90-devco
     # 2. Clone this (public) repo; no token needed
@@ -74,5 +89,5 @@ autoinstall:
     # 3. Install the first-boot bootstrap service (runs as the user, needs linger)
     - curtin in-target --target=/target -- bash -c 'mkdir -p /opt/devco && chown __USERNAME__:__USERNAME__ /opt/devco && echo 0 > /opt/devco/.bootstrap-stage && chown __USERNAME__:__USERNAME__ /opt/devco/.bootstrap-stage'
     - curtin in-target --target=/target -- bash -c 'install -m 0755 /home/__USERNAME__/devco-infra/00-unattended/devco-bootstrap.sh /usr/local/sbin/devco-bootstrap.sh'
-    - curtin in-target --target=/target -- bash -c 'sed "s/@@USER@@/__USERNAME__/g" /home/__USERNAME__/devco-infra/00-unattended/devco-bootstrap.service > /etc/systemd/system/devco-bootstrap.service && systemctl enable devco-bootstrap.service'
+    - curtin in-target --target=/target -- bash -c 'sed "s/@@USER@@/__USERNAME__/g; s/@@UID@@/$(id -u __USERNAME__)/g" /home/__USERNAME__/devco-infra/00-unattended/devco-bootstrap.service > /etc/systemd/system/devco-bootstrap.service && systemctl enable devco-bootstrap.service'
     - curtin in-target --target=/target -- bash -c 'mkdir -p /var/lib/systemd/linger && touch /var/lib/systemd/linger/__USERNAME__'

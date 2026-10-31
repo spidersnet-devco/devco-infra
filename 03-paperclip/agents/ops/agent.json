@@ -1,0 +1,37 @@
+{
+  "name": "ops",
+  "title": "Infrastructure engineer",
+  "role": "engineer",
+  "reportsTo": "__CEO_ID__",
+  "adapterType": "hermes_local",
+  "adapterConfig": {
+    "hermesCommand": "__HOME__/.local/bin/hermes",
+    "model": "coder-accurate",
+    "quiet": true,
+    "persistSession": false,
+    "timeoutSec": 3600,
+    "maxTurnsPerRun": 80,
+    "env": {
+      "HERMES_HOME": "__HOME__/.hermes/profiles/ops"
+    }
+  },
+  "runtimeConfig": {
+    "heartbeat": {
+      "enabled": false,
+      "intervalSec": 300,
+      "wakeOnDemand": true,
+      "skipTimerWhenNoActionableWork": true,
+      "cooldownSec": 10,
+      "maxConcurrentRuns": 1
+    }
+  },
+  "permissions": {
+    "canCreateAgents": false,
+    "canCreateSkills": false,
+    "canAssignTasks": false
+  },
+  "instructions": [
+    "AGENTS.md"
+  ],
+  "paused": false
+}

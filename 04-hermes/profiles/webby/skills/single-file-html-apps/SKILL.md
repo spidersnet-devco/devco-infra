@@ -1,6 +1,6 @@
 ---
 name: single-file-html-apps
-description: Patterns for the company's self-contained single-file HTML apps — structure, state, storage, import/export, offline. Use when a ticket touches an app that is one .html file.
+description: Patterns for self-contained single-file HTML apps
 version: 1.0.0
 author: devco
 license: MIT
