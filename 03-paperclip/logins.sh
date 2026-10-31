@@ -51,7 +51,7 @@ if pause "4/5 Paperclip: open http://$DEVCO_LAN_IP:3100 in a browser, create you
   paperclipai service status 2>/dev/null | head -3 || true
 fi
 
-if pause "5/5 Paperclip CLI: this prints an approval link; open it in the browser where you are signed in to Paperclip and approve."; then
+if pause "5/5 Paperclip CLI: this prints an approval link. It says 127.0.0.1; open it in the browser where you are signed in to Paperclip with 127.0.0.1 replaced by $DEVCO_LAN_IP (keep the ?token= part), then approve."; then
   paperclipai auth login --api-base "$PAPERCLIP_URL" && paperclipai auth whoami --api-base "$PAPERCLIP_URL"
 fi
 
