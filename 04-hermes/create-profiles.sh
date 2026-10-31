@@ -82,7 +82,18 @@ for entry in "${HERMES_PROFILES[@]}"; do
     echo "    removed API_SERVER_* from $PDIR/.env (Paperclip runs this profile directly now)"
   fi
 
-  HERMES_HOME="$PDIR" hermes doctor >/dev/null 2>&1 && echo "    doctor: ok" || echo "    doctor: reported issues (HERMES_HOME=$PDIR hermes doctor)"
+  # Doctor exits non-zero for two notes that are expected on this box and never go away:
+  # the ".env has no API key" hint (the gateway is configured in config.yaml and needs no
+  # key) and Hermes's own upstream npm-audit items. Report only whatever else it found.
+  dout="$(HERMES_HOME="$PDIR" NO_COLOR=1 hermes doctor 2>&1 || true)"
+  unexpected="$(printf '%s\n' "$dout" | sed -n 's/^ *[0-9][0-9]*\. //p' \
+                | grep -vE "^Run 'hermes setup' to configure (missing )?API keys|npm vulnerabilit" || true)"
+  if [[ -z "$unexpected" ]]; then
+    echo "    doctor: ok (only the expected notes: .env API-key hint, upstream npm audit)"
+  else
+    echo "    doctor: reported issues (HERMES_HOME=$PDIR hermes doctor):"
+    printf '%s\n' "$unexpected" | sed 's/^/      - /'
+  fi
 done
 
 if (( SMOKE )); then

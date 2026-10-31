@@ -9,12 +9,37 @@ box-specific and not for a public repo (LAN IPs, Paperclip ids, MACs) go in
 Paste `devco versions` here after each phase, with the date.
 
 ```
-(not installed yet)
+2026-10-31 (first install; confirm with `devco versions`)
+  Ubuntu Server 26.04.1 LTS, kernel 7.0.0-42
+  llama.cpp 0.8.0-dev build 12024, Vulkan (RADV, "Radeon 8060S Graphics (RADV STRIX_HALO)")
+  models: gpt-oss-120b-MXFP4.gguf (coder-accurate), Qwen3.6-35B-A3B-UD-Q4_K_XL.gguf (coder-fast)
+  Paperclip 2026.1023.0 (user service paperclipai.service)
+  Claude Code 2.1.316, codex-cli 0.166.0, pi 1.4.0, Hermes Agent v0.22.5, gh 2.103.3
 ```
 
 ## Deviations from the runbook
 
-- (none yet)
+- 2026-10-31 — Ubuntu was installed by hand (installer ISO on the JetKVM's virtual media,
+  no autoinstall), so `00-unattended/bootstrap-manual-install.sh` ran the same stages
+  afterwards instead of cloud-init. Same end state.
+- 2026-10-31 — the hosted Paperclip installer (`paperclip.ing/install.sh`) passed
+  `--no-prompt` to CLI 2026.1023.0, which only knows `--yes`; stage 2 of the first bootstrap
+  failed there. `install-paperclip.sh` now runs `npx paperclipai@latest install --yes`
+  itself; stage 2 was finished by re-running the script by hand.
+- 2026-10-31 — Paperclip's user service runs with systemd's minimal PATH, so the CEO,
+  Reviewer, Principal and Architect failed their first harness check (no `claude`/`codex`).
+  Fixed in the repo: a PATH drop-in for the service plus absolute `command` paths in the
+  agent definitions; `create-company.sh` retries agents that failed verification.
+- 2026-10-31 — the box came up on UTC, so the three routines were first created in
+  `Etc/UTC`. `timedatectl set-timezone` + re-running `create-company.sh` moved them
+  (the script now re-times existing routines whenever the box's zone changes).
+- 2026-10-31 — `hermes doctor` is never fully "clean" here: it always lists the
+  `.env` API-key hint (the gateway is keyless and configured in config.yaml) and Hermes's
+  own upstream npm-audit items. `create-profiles.sh` filters those out and reports
+  anything else. `hermes chat` also auto-starts one host gateway daemon per box that
+  serves every profile and exits when idle — that is Hermes 0.22 behaviour, not ours.
+- 2026-10-31 — the board's own SSH key is not on the box yet (no key on the GitHub
+  account at install time); SSH is password-only until one is added.
 
 ## Decisions
 
