@@ -20,6 +20,7 @@ later by editing one gateway config (see `05-expansion/`).
   phone/laptop   │  (control plane)   ├─ Principal Eng    Claude Code  opus-5-5    │── Max 20x  [escalation only]
                  │                    ├─ Chief Architect  Claude Code  fable-5-1   │── Max 20x  [last resort]
                  │                    ├─ Reviewer         Codex                    │── ChatGPT Plus
+                 │                    ├─ pixel (design)   Codex                    │── ChatGPT Plus
                  │                    ├─ Watchdog         Pi ─────────────┐        │
                  │                    ├─ pyro             Hermes profile ─┤        │
                  │                    ├─ webby            Hermes profile ─┤        │
@@ -41,6 +42,7 @@ later by editing one gateway config (see `05-expansion/`).
 | Rung | Agent | Harness / model | Pays from | Runs |
 |---|---|---|---|---|
 | 1 | pyro, webby, ops | Hermes Agent → `coder-accurate` (local) | nothing | first pass on everything |
+| 1 | pixel | Codex | ChatGPT Plus | graphic & UI design: SVG art, palettes/themes, mockups, scripted PNG assets |
 | 2 | Reviewer | Codex | ChatGPT Plus | reviews every PR; medium tasks |
 | 3 | Principal Engineer | Claude Code `claude-opus-5-5` | Max 20x | hard tasks; a junior failed; the CEO escalates with a brief |
 | 4 | Chief Architect | Claude Code `claude-fable-5-1` | Max 20x (50 % cap, burns faster) | Principal failed, or project-shaping design; the CEO escalates from a brief |

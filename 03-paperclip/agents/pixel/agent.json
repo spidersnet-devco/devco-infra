@@ -1,0 +1,32 @@
+{
+  "name": "pixel",
+  "title": "Graphic & UI designer",
+  "role": "designer",
+  "reportsTo": "__PRINCIPAL_ID__",
+  "adapterType": "codex_local",
+  "adapterConfig": {
+    "command": "__HOME__/.npm-global/bin/codex",
+    "engine": "cli",
+    "maxTurnsPerRun": 60,
+    "timeoutSec": 3600
+  },
+  "runtimeConfig": {
+    "heartbeat": {
+      "enabled": false,
+      "intervalSec": 300,
+      "wakeOnDemand": true,
+      "skipTimerWhenNoActionableWork": true,
+      "cooldownSec": 10,
+      "maxConcurrentRuns": 1
+    }
+  },
+  "permissions": {
+    "canCreateAgents": false,
+    "canCreateSkills": false,
+    "canAssignTasks": false
+  },
+  "instructions": [
+    "AGENTS.md"
+  ],
+  "paused": false
+}

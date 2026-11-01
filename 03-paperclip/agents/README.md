@@ -13,6 +13,7 @@ in git, so the setup is repeatable and reviewable.
 | `pyro/` | pyro | Hermes profile, `coder-accurate` (local) | free | Python / PySide6 |
 | `webby/` | webby | Hermes profile, `coder-accurate` (local) | free | web / single-file HTML |
 | `ops/` | ops | Hermes profile, `coder-accurate` (local) | free | Docker / homelab / CI |
+| `pixel/` | pixel | Codex (ChatGPT Plus) | the Plus pool, shared with the Reviewer | graphic & UI design: SVG art, palettes/themes, mockups, scripted PNG assets, design review |
 | `principal-engineer/` | Principal Engineer | Claude Code, **claude-opus-5-5** | your Max plan | CEO escalates after a junior failed (ladder rules in `ceo/AGENTS.md`) |
 | `chief-architect/` | Chief Architect | Claude Code, **claude-fable-5-1** | your Max plan (50 % cap) | CEO escalates after the Principal failed, or for project-shaping design; works from a brief |
 

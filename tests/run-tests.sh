@@ -106,7 +106,7 @@ done
 check "org chart: CEO > Architect > Principal > juniors; QA under the CEO" bash -c "
   jq -e '.reportsTo==\"__CEO_ID__\"' '$ROOT/03-paperclip/agents/chief-architect/agent.json' >/dev/null &&
   jq -e '.reportsTo==\"__ARCHITECT_ID__\"' '$ROOT/03-paperclip/agents/principal-engineer/agent.json' >/dev/null &&
-  for j in pyro webby ops; do jq -e '.reportsTo==\"__PRINCIPAL_ID__\"' \"$ROOT/03-paperclip/agents/\$j/agent.json\" >/dev/null || exit 1; done &&
+  for j in pyro webby ops pixel; do jq -e '.reportsTo==\"__PRINCIPAL_ID__\"' \"$ROOT/03-paperclip/agents/\$j/agent.json\" >/dev/null || exit 1; done &&
   for j in reviewer watchdog; do jq -e '.reportsTo==\"__CEO_ID__\"' \"$ROOT/03-paperclip/agents/\$j/agent.json\" >/dev/null || exit 1; done &&
   grep -q 'upsert_agent \"\$AG/chief-architect\"' '$ROOT/03-paperclip/create-company.sh' && grep -q 'ARCHITECT_ID=\"\$(upsert_agent' '$ROOT/03-paperclip/create-company.sh'"
 check "hermes profiles run their own short-lived gateway (per-run PAPERCLIP_* env)" python3 -I -c '

@@ -162,7 +162,7 @@ fi
 ARCHITECT_ID=""; PRINCIPAL_ID=""
 ARCHITECT_ID="$(upsert_agent "$AG/chief-architect" | tail -1)"
 PRINCIPAL_ID="$(upsert_agent "$AG/principal-engineer" | tail -1)"
-for d in reviewer watchdog pyro webby ops; do
+for d in reviewer watchdog pyro webby ops pixel; do
   upsert_agent "$AG/$d" >/dev/null
 done
 
@@ -256,7 +256,8 @@ cat <<EOF
 =====================================================================
 Company built. Check it:  http://$DEVCO_LAN_IP:3100
   Agents           CEO (Sonnet), Reviewer (Codex), Watchdog (Pi/local),
-                   pyro, webby, ops (Hermes/local), Principal (Opus, escalation),
+                   pyro, webby, ops (Hermes/local), pixel (Codex, design),
+                   Principal (Opus, escalation),
                    Chief Architect (Fable, last resort)
   Routines         Nightly QA sweep 02:10, Daily standup 07:40 weekdays,
                    Weekly skills review Sun 09:00  (all $TZ_NAME, all local models)

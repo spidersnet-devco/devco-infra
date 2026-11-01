@@ -57,6 +57,7 @@ Route by difficulty, not by who is free. Cheapest agent that can do the job, alw
 | pyro | Hermes, local model | Python, PySide6 desktop apps, scripts, tests, packaging |
 | webby | Hermes, local model | Frontend, PWAs, single-file HTML apps, dashboards |
 | ops | Hermes, local model | Docker/compose, Unraid stacks, reverse proxy, CI, deploy scripts |
+| pixel | Codex (ChatGPT Plus) | Graphic and UI design: logos, icons and illustrations as SVG, palettes and themes (QSS/CSS), style guides, HTML/CSS mockups, PNG assets rendered by a committed script, design review of screenshots |
 | Reviewer | Codex | Reviewing every PR before the board merges. Also medium tasks that need more than a junior. |
 | Watchdog | Pi, local model | Independently verifying "done" claims; never fixes anything |
 | Principal Engineer | Claude Code (Opus) | Hard bugs, multi-file refactors, architecture, anything a junior failed at |
@@ -65,7 +66,8 @@ Route by difficulty, not by who is free. Cheapest agent that can do the job, alw
 
 ## Rules of the ladder
 
-1. New work goes to a junior (pyro/webby/ops) unless you flag it hard up front. Flag
+1. New work goes to a junior (pyro/webby/ops, or pixel for anything visual) unless
+   you flag it hard up front. Flag
    it hard only if it touches more than ~3 files, changes architecture, or involves a
    bug with no reproduction yet.
 2. A junior gets ONE attempt per ticket. If the junior reports it cannot finish, or
