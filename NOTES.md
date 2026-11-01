@@ -85,6 +85,9 @@ Paste `devco versions` here after each phase, with the date.
   the org chart follows the ladder (CEO → Architect → Principal → juniors; QA under the
   CEO); the PR template no longer has a `<task URL>` placeholder. Root cause of the 403
   still to be read from pyro's run log.
+- 2026-10-31 — lockdown.sh ran clean (Phase 6). `sudo -n true` still succeeded right
+  after because sudo had cached the password typed during step 2; the script now runs
+  `sudo -k` and verifies itself.
 - 2026-10-31 — the board opened the Principal and the Chief Architect to the CEO
   (no `protected` assignment policy, Architect not paused) so hard work climbs the
   ladder without a human in the loop. The ladder rules in `ceo/AGENTS.md` are now the

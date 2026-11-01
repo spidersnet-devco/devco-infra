@@ -67,7 +67,7 @@ A phase is done when its check passes, not when its script exits 0:
 | 3 | `create-profiles.sh --smoke` prints `doctor: ok` and an `OK <name>` answer for pyro, webby, ops (`hermes doctor` itself always lists two expected notes on this box: the `.env` API-key hint — the gateway is keyless and configured in config.yaml — and Hermes's upstream npm-audit items); in Paperclip each junior shows adapter `hermes_local` |
 | 4 | `clone-project.sh peel --python` done; Paperclip shows the project with codebase `/opt/devco/repos/peel`; `qa-run.sh /opt/devco/repos/peel` prints a verdict |
 | 5 | First ticket round-tripped: PR opened by the bot, Reviewer comment + `reviewer-approved` label, Watchdog comment, Geoff merged |
-| 6 | `lockdown.sh` ran; `sudo -n true` fails; `git push` to main is refused by the hook |
+| 6 | `lockdown.sh` ran and printed `Lockdown verified`; `sudo -k; sudo -n true` fails (`-k` first: sudo caches the password for 15 min and fools the check); `git push` to main is refused by the hook |
 
 Report each phase to Geoff as: what ran, what you changed in the repo, what the
 check showed, what's next.

@@ -68,3 +68,11 @@ Locked down. To edit the gateway config or re-run an installer later:
     ... do the work ...
     /opt/devco/bin/lockdown.sh           # lock again
 EOF
+# sudo caches the password you just typed for ~15 min, which makes "sudo -n true" look
+# like passwordless sudo is still on. Forget it so the check below means something.
+sudo -k
+if sudo -n true 2>/dev/null; then
+  echo "!! sudo still works without a password: check 'sudo -l' and /etc/sudoers.d/" >&2; exit 1
+else
+  echo "Check: sudo now asks for a password (sudo -n true fails). Lockdown verified."
+fi

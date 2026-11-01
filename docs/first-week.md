@@ -74,7 +74,7 @@ but not alarming. If it burned a large share of the 5-hour window, lower
 
 - `devco backup` ran nightly? `devco status` shows the mirror line? If not,
   `devco mirror-timer`, `devco backup --install-timer`, and check the NAS mount.
-- `lockdown.sh` has run (README Phase 6). `sudo -n true` should fail.
+- `lockdown.sh` has run (README Phase 6). `sudo -k; sudo -n true` should fail (the `-k` drops sudo's 15-minute password cache, which otherwise makes the check pass).
 - Paperclip → Company → **Export**, scrub LAN IPs and ids, commit as
   `03-paperclip/company-export/`. A rebuild can then import it instead of re-running
   `create-company.sh`.
