@@ -66,3 +66,17 @@ security:
 # Where terminal commands start when Paperclip gives no workspace (it normally does).
 terminal:
   cwd: __REPOS__
+
+# Hermes 0.22 runs every chat through ONE long-lived gateway daemon per host, and the
+# shell commands an agent runs inherit the environment of whichever `hermes chat`
+# started that daemon - not the current one's. Paperclip hands each run its API token,
+# run id and task id in the environment, so a daemon left over from an earlier run
+# makes every Paperclip API call fail with 403 (first seen on SPI-6: the second run
+# after a review round reused the first run's daemon, and the recovery loop kept that
+# daemon alive for 45 minutes). So: each profile runs its own gateway, and that
+# gateway exits a few seconds after the run instead of the default 10 minutes, so the
+# next run starts a fresh one with its own PAPERCLIP_* values. (create-profiles.sh
+# drops this section from the default profile, where `standalone` is not allowed.)
+gateway:
+  standalone: true
+  unmanaged_idle_exit_seconds: 5

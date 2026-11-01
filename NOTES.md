@@ -83,8 +83,14 @@ Paste `devco versions` here after each phase, with the date.
   (b) the Reviewer again approved on the task without the GitHub comment/label.
   Repo changes: the CEO now puts a missing verdict on the PR itself before reporting;
   the org chart follows the ladder (CEO → Architect → Principal → juniors; QA under the
-  CEO); the PR template no longer has a `<task URL>` placeholder. Root cause of the 403
-  still to be read from pyro's run log.
+  CEO); the PR template no longer has a `<task URL>` placeholder.
+  Root cause of the 403 (from the Hermes 0.22.5 source, not from a log): Hermes runs every
+  chat through one long-lived gateway daemon per host, and tool subprocesses inherit the
+  environment of the `hermes chat` that started it. The daemon idles out after 10 min;
+  pyro's second run came 4 min after its first, reused the first run's daemon, and so sent
+  the first run's PAPERCLIP_API_KEY/RUN_ID -> 403 on every write; each recovery wake kept
+  the daemon alive. Fix in config.template.yaml: `gateway.standalone: true` (own gateway
+  per profile) + `unmanaged_idle_exit_seconds: 5` (fresh daemon per run).
 - 2026-10-31 — lockdown.sh ran clean (Phase 6). `sudo -n true` still succeeded right
   after because sudo had cached the password typed during step 2; the script now runs
   `sudo -k` and verifies itself.

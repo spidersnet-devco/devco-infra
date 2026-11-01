@@ -32,6 +32,7 @@ for k, v in (("__GATEWAY_KEY__", gwkey), ("__GATEWAY__", gw), ("__REPOS__", repo
 over = yaml.safe_load(text) or {}
 if name == "default":
     over.pop("skills", None)          # the default profile has no specialist skills
+    over.pop("gateway", None)         # it IS the host gateway; `standalone` is refused there
 def merge(a, b):
     for k, v in b.items():
         if isinstance(v, dict) and isinstance(a.get(k), dict):

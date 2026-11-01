@@ -109,6 +109,10 @@ check "org chart: CEO > Architect > Principal > juniors; QA under the CEO" bash 
   for j in pyro webby ops; do jq -e '.reportsTo==\"__PRINCIPAL_ID__\"' \"$ROOT/03-paperclip/agents/\$j/agent.json\" >/dev/null || exit 1; done &&
   for j in reviewer watchdog; do jq -e '.reportsTo==\"__CEO_ID__\"' \"$ROOT/03-paperclip/agents/\$j/agent.json\" >/dev/null || exit 1; done &&
   grep -q 'upsert_agent \"\$AG/chief-architect\"' '$ROOT/03-paperclip/create-company.sh' && grep -q 'ARCHITECT_ID=\"\$(upsert_agent' '$ROOT/03-paperclip/create-company.sh'"
+check "hermes profiles run their own short-lived gateway (per-run PAPERCLIP_* env)" python3 -I -c '
+import sys, yaml; c = yaml.safe_load(open(sys.argv[1]))
+g = c["gateway"]; assert g["standalone"] is True and 0 < g["unmanaged_idle_exit_seconds"] <= 30' "$ROOT/04-hermes/config.template.yaml"
+check "create-profiles.sh keeps gateway settings out of the default profile" grep -q 'over.pop("gateway", None)' "$ROOT/04-hermes/create-profiles.sh"
 check "CEO model is Sonnet" bash -c "jq -e '.adapterConfig.model==\"claude-sonnet-5-5\"' '$ROOT/03-paperclip/agents/ceo/agent.json' >/dev/null"
 check "skill descriptions <= 60 chars" bash -c "! grep -rh '^description:' '$ROOT'/04-hermes/profiles/*/skills/*/SKILL.md '$ROOT'/04-hermes/profiles/shared-skills/*/SKILL.md | awk -F'description: ' 'length(\$2)>60{f=1} END{exit !f}'"
 check "no stale /opt/devco/qa-run.sh paths" bash -c "! grep -rn '/opt/devco/qa-run\.sh' '$ROOT' --include='*.md' --include='*.sh' --include='*.json' | grep -v 'bin/qa-run.sh'"

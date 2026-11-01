@@ -68,6 +68,14 @@ Two details that are easy to break (both verified against Paperclip's adapter so
   profile's) to see that a model and key are configured; without it every junior is
   created paused with "No LLM API keys found".
 
+- Hermes 0.22 runs every chat through **one long-lived gateway daemon**, and the shell
+  commands an agent runs inherit the environment of the `hermes chat` that *started* the
+  daemon. Paperclip passes each run its API token/run id/task id in the environment, so a
+  daemon left over from a previous run (they idle out after 10 min by default) makes every
+  Paperclip write return 403 and the recovery loop keeps re-waking the agent. The profile
+  config therefore sets `gateway.standalone: true` and `unmanaged_idle_exit_seconds: 5`:
+  one gateway per profile, gone a few seconds after each run.
+
 The CEO is the other one that is easy to break, in the opposite direction: a capable
 model dropped into a checkout with a concrete ticket will just do the work. So the CEO
 runs with `--disallowedTools Edit Write NotebookEdit MultiEdit "Bash(git commit *)"
