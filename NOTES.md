@@ -91,6 +91,20 @@ Paste `devco versions` here after each phase, with the date.
   the first run's PAPERCLIP_API_KEY/RUN_ID -> 403 on every write; each recovery wake kept
   the daemon alive. Fix in config.template.yaml: `gateway.standalone: true` (own gateway
   per profile) + `unmanaged_idle_exit_seconds: 5` (fresh daemon per run).
+- 2026-11-01 — the artvault chain (SPI-8, seven tickets) ran overnight: brief (Opus),
+  ADR (Fable) and brand (pixel) approved; the backend (pyro) hit three things.
+  (a) The stale-gateway problem came back as `agent_run_cancelled`: a run Paperclip had
+  cancelled left its Hermes gateway busy (so it never idled out), and the next run's
+  commands carried the cancelled run's token. Fix: juniors now run hermes through
+  `/opt/devco/bin/hermes-run`, which stops the profile's gateway before every `chat`.
+  (b) The Reviewer treated GitHub as unavailable because Paperclip's own prompt tells
+  agents to look for a "connection" for any service; it found none and requested one.
+  Every agent's instructions now say GitHub is the preinstalled `gh` + SSH, no
+  connection ever. (c) The Watchdog (Pi) "fixed" the Reviewer's findings itself and
+  pushed a branch — Paperclip's watchdog mandate ("restore a live path") beat our rule.
+  It now runs with `--exclude-tools edit,write` and a blunter instruction. Also: the CEO
+  held all PRs for one report at the end of the chain, so nobody was asked to merge; it
+  now sends a merge card per approved ticket.
 - 2026-10-31 — `new-project.sh <name> --python|--node|--stacks`: one command creates
   the GitHub repo in the org as the bot, adds the agents team, pushes the bootstrap
   files to main and registers the Paperclip project; the CEO may run it when a board

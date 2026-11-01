@@ -5,7 +5,7 @@
   "reportsTo": "__PRINCIPAL_ID__",
   "adapterType": "hermes_local",
   "adapterConfig": {
-    "hermesCommand": "__HOME__/.local/bin/hermes",
+    "hermesCommand": "/opt/devco/bin/hermes-run",
     "model": "coder-accurate",
     "quiet": true,
     "persistSession": false,

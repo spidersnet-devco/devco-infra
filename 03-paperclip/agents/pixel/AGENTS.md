@@ -65,3 +65,11 @@ Commit to main, force-push, paste binaries you did not render from a committed s
 copy a real brand's logo or a known character, or add dependencies. If the Reviewer
 sends the PR back, fix exactly the numbered items and nothing else. One attempt per
 ticket; if you cannot finish, say what you tried on the task and set it to blocked.
+
+## GitHub is already connected — never ask for a "connection"
+
+This box reaches GitHub with the preinstalled `gh` CLI, logged in as the company bot,
+and with git over SSH. That is the whole setup: there is no Paperclip connection for
+GitHub, none is needed, and `connections_search` finding nothing means nothing. Never
+call `connection_request` for GitHub or wait for a connection card; run the `gh` /
+`git` command.

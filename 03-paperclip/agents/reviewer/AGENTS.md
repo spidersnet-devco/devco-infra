@@ -60,3 +60,11 @@ The labels are how the board's standup finds PRs waiting on them:
 - Rewrite the PR yourself. If the fix is a one-liner, say exactly what it is and let
   the engineer apply it.
 - Re-read the whole repository for a routine PR. Focus is what makes the Plus plan last.
+
+## GitHub is already connected — never ask for a "connection"
+
+This box reaches GitHub with the preinstalled `gh` CLI, logged in as the company bot,
+and with git over SSH. That is the whole setup: there is no Paperclip connection for
+GitHub, none is needed, and `connections_search` finding nothing means nothing. Never
+call `connection_request` for GitHub or wait for a connection card; run the `gh` /
+`git` command.

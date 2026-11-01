@@ -11,12 +11,29 @@
     "maxTurnsPerRun": 40,
     "env": {
       "PAPERCLIP_PI_PROVIDERS": "{\"devco\":{\"baseUrl\":\"__GATEWAY__\",\"api\":\"openai-completions\",\"apiKey\":\"no-key-required\",\"models\":[{\"id\":\"coder-fast\",\"contextWindow\":65536,\"maxTokens\":8192},{\"id\":\"coder-accurate\",\"contextWindow\":65536,\"maxTokens\":8192,\"reasoning\":true}]}}"
-    }
+    },
+    "extraArgs": [
+      "--exclude-tools",
+      "edit,write"
+    ]
   },
   "runtimeConfig": {
-    "heartbeat": { "enabled": false, "intervalSec": 300, "wakeOnDemand": true, "skipTimerWhenNoActionableWork": true, "cooldownSec": 10, "maxConcurrentRuns": 1 }
+    "heartbeat": {
+      "enabled": false,
+      "intervalSec": 300,
+      "wakeOnDemand": true,
+      "skipTimerWhenNoActionableWork": true,
+      "cooldownSec": 10,
+      "maxConcurrentRuns": 1
+    }
   },
-  "permissions": { "canCreateAgents": false, "canCreateSkills": false, "canAssignTasks": true },
-  "instructions": ["AGENTS.md"],
+  "permissions": {
+    "canCreateAgents": false,
+    "canCreateSkills": false,
+    "canAssignTasks": true
+  },
+  "instructions": [
+    "AGENTS.md"
+  ],
   "paused": false
 }

@@ -36,3 +36,11 @@ goes back down the ladder: create a task for the CEO describing it, don't do it 
 - Add a dependency, change a data model, or touch a running service without asking the
   board on the ticket first.
 - Start work the ticket does not ask for.
+
+## GitHub is already connected — never ask for a "connection"
+
+This box reaches GitHub with the preinstalled `gh` CLI, logged in as the company bot,
+and with git over SSH. That is the whole setup: there is no Paperclip connection for
+GitHub, none is needed, and `connections_search` finding nothing means nothing. Never
+call `connection_request` for GitHub or wait for a connection card; run the `gh` /
+`git` command.

@@ -90,6 +90,9 @@ if a["adapterType"] == "claude_local":
 if a["adapterType"] == "hermes_local":
     assert a["adapterConfig"]["env"]["HERMES_HOME"].endswith(d.name), "HERMES_HOME must point at the profile"
     assert a["adapterConfig"]["model"] == "coder-accurate"
+    assert a["adapterConfig"]["hermesCommand"] == "/opt/devco/bin/hermes-run", "juniors run hermes through the wrapper"
+if d.name == "watchdog":
+    assert a["adapterConfig"].get("extraArgs") == ["--exclude-tools", "edit,write"], "the Watchdog must not be able to edit"
 if d.name in ("principal-engineer", "chief-architect"):
     # Reachable by the CEO up the ladder (board decision 2026-10-31); not paused, not protected.
     assert "authorizationPolicy" not in a["permissions"] and a["paused"] is False
@@ -136,6 +139,8 @@ check "approve: comment, label, Paperclip PATCH status=done" bash -c "PATH='$FB:
 : > "$FAKE_LOG"
 check "changes: label changes-requested, no Paperclip call without run vars" bash -c "PATH='$FB:$PATH' bash '$RV' changes $PR '$WORK/body.md' | grep -q 'record the verdict on the task yourself' && grep -q -- '--add-label changes-requested' '$FAKE_LOG' && ! grep -q curl '$FAKE_LOG'"
 check "refuses a non-PR url and an empty body" bash -c "! PATH='$FB:$PATH' bash '$RV' approve https://example.com/x '$WORK/body.md' 2>/dev/null && : > '$WORK/empty.md' && ! PATH='$FB:$PATH' bash '$RV' approve $PR '$WORK/empty.md' 2>/dev/null"
+check "install-paperclip.sh installs hermes-run" grep -q 'hermes-run.sh" *\/opt/devco/bin/hermes-run' "$ROOT/03-paperclip/install-paperclip.sh"
+check "every agent is told GitHub needs no Paperclip connection" bash -c "for n in reviewer pixel ceo watchdog principal-engineer chief-architect; do grep -q 'never ask for a \"connection\"' \"$ROOT/03-paperclip/agents/\$n/AGENTS.md\" || exit 1; done; grep -q 'never search for or request a Paperclip' '$ROOT/04-hermes/profiles/shared-skills/devco-workflow/SKILL.md'"
 check "install-paperclip.sh installs new-project.sh" grep -q 'new-project.sh" *\/opt/devco/bin/new-project.sh' "$ROOT/03-paperclip/install-paperclip.sh"
 check "install-paperclip.sh installs review-verdict.sh" grep -q 'review-verdict.sh" /opt/devco/bin/review-verdict.sh' "$ROOT/03-paperclip/install-paperclip.sh"
 

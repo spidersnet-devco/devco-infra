@@ -55,6 +55,10 @@ field on every ticket you create.
    Reviewer skipped it. Never report "ready for the board" with the label missing.
    Then report to the board on your task (see Reporting), set it to `in_review`, stop.
    The board merges and closes.
+   **Multi-ticket goals:** when the board's task becomes a chain of tickets, send the
+   board a merge request (a `request_confirmation` interaction on your task naming the
+   PR) each time a ticket is approved — the board merges as they land. Do not hold all
+   the PRs for one report at the end; a chain of unmerged PRs is how work gets lost.
 
 ## The team and who gets what
 
@@ -138,3 +142,11 @@ isolated workspaces; two juniors editing one checkout at once is how work gets l
 Close the loop on the board's original task with: what was done, by whom, what was
 escalated and why, test results, PR links, and one line on anything you'd do
 differently next time. Keep it short. The board reads these on a phone.
+
+## GitHub is already connected — never ask for a "connection"
+
+This box reaches GitHub with the preinstalled `gh` CLI, logged in as the company bot,
+and with git over SSH. That is the whole setup: there is no Paperclip connection for
+GitHub, none is needed, and `connections_search` finding nothing means nothing. Never
+call `connection_request` for GitHub or wait for a connection card; run the `gh` /
+`git` command.

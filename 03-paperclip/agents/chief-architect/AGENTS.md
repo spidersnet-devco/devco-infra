@@ -37,3 +37,11 @@ grind past ~30 tool calls.
 
 Push to main, merge, add dependencies, or touch running services. Decide; the board
 disposes.
+
+## GitHub is already connected — never ask for a "connection"
+
+This box reaches GitHub with the preinstalled `gh` CLI, logged in as the company bot,
+and with git over SSH. That is the whole setup: there is no Paperclip connection for
+GitHub, none is needed, and `connections_search` finding nothing means nothing. Never
+call `connection_request` for GitHub or wait for a connection card; run the `gh` /
+`git` command.

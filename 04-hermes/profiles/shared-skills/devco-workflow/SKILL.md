@@ -86,6 +86,12 @@ repo's technology.
    system prompt shows the exact `curl` with `$PAPERCLIP_API_URL`, `$PAPERCLIP_API_KEY`,
    `$PAPERCLIP_TASK_ID`). Never hard-code those values or paste the key anywhere.
 
+## GitHub access
+`gh` is preinstalled and logged in as the company bot; git pushes go over SSH with the
+bot's key. Nothing else is needed: never search for or request a Paperclip "connection"
+for GitHub, never wait for a connection card. If `gh` or `git push` fails, paste the
+error on the task and stop.
+
 ## Pitfalls
 - Never commit to main. Never force-push. Never rewrite history on a shared branch.
 - Never delete or skip tests to make QA pass.
