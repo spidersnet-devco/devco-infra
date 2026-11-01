@@ -68,7 +68,8 @@ fi
 render() {  # render <agent-dir> -> JSON payload for create/update (placeholders filled, bundle attached)
   local dir="$1" base files k
   base="$(sed -e "s|__HOME__|$HOME|g" -e "s|__REPOS__|$DEVCO_REPOS|g" \
-              -e "s|__GATEWAY__|$MODEL_GATEWAY_URL|g" -e "s|__CEO_ID__|${CEO_ID:-}|g" "$dir/agent.json")"
+              -e "s|__GATEWAY__|$MODEL_GATEWAY_URL|g" -e "s|__CEO_ID__|${CEO_ID:-}|g" \
+              -e "s|__ARCHITECT_ID__|${ARCHITECT_ID:-}|g" -e "s|__PRINCIPAL_ID__|${PRINCIPAL_ID:-}|g" "$dir/agent.json")"
   files='{}'
   for k in $(jq -r '.instructions[]' <<<"$base"); do
     files="$(jq --arg k "$k" --rawfile v "$dir/$k" '. + {($k): $v}' <<<"$files")"
@@ -154,7 +155,14 @@ if ! PCC goal list --json 2>/dev/null | jq -e --arg t "$GOAL_TITLE" '.[] | selec
 fi
 
 # --------------------------------------------------------------- 5. agents ---
-for d in reviewer watchdog pyro webby ops principal-engineer chief-architect; do
+# Org chart = the ladder: CEO -> Chief Architect -> Principal Engineer -> pyro/webby/ops;
+# Reviewer and Watchdog report to the CEO. Managers are created before their reports so
+# the reportsTo placeholders resolve. (Reporting lines are the chart and the escalation
+# path in Paperclip's eyes; who may assign to whom is set by permissions, not by this.)
+ARCHITECT_ID=""; PRINCIPAL_ID=""
+ARCHITECT_ID="$(upsert_agent "$AG/chief-architect" | tail -1)"
+PRINCIPAL_ID="$(upsert_agent "$AG/principal-engineer" | tail -1)"
+for d in reviewer watchdog pyro webby ops; do
   upsert_agent "$AG/$d" >/dev/null
 done
 

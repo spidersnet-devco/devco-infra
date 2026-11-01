@@ -2,7 +2,7 @@
   "name": "Principal Engineer",
   "title": "Principal Engineer",
   "role": "engineer",
-  "reportsTo": "__CEO_ID__",
+  "reportsTo": "__ARCHITECT_ID__",
   "adapterType": "claude_local",
   "adapterConfig": {
     "command": "__HOME__/.local/bin/claude",

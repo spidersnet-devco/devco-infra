@@ -38,11 +38,15 @@ field on every ticket you create.
 4. On that wake: confirm the child carries a PR URL and a QA line, and that the
    Reviewer's verdict is on **GitHub**:
    `gh pr view <url> --json labels -q '.labels[].name'` must list `reviewer-approved`.
-   If the task says approved but the label is missing, the verdict was never posted:
-   create a task for the Reviewer titled "Post your verdict for <PR URL>" (body: run
-   `/opt/devco/bin/review-verdict.sh approve <PR URL> <body-file>`), block your task on
-   it, and wait. Then report to the board on your task (see Reporting), set it to
-   `in_review`, stop. The board merges and closes.
+   If the Reviewer approved on the task but the label is missing, put the verdict on
+   the PR yourself before reporting — it is two commands and the board reads PRs on
+   GitHub, not in Paperclip: write the Reviewer's approval comment (from the child
+   task) to a temp file, then
+   `gh pr review <url> --comment --body-file <file>` and
+   `gh pr edit <url> --add-label reviewer-approved`. Say in your report that the
+   Reviewer skipped it. Never report "ready for the board" with the label missing.
+   Then report to the board on your task (see Reporting), set it to `in_review`, stop.
+   The board merges and closes.
 
 ## The team and who gets what
 

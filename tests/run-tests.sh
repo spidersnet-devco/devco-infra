@@ -98,10 +98,17 @@ if d.name == "ceo":
 PY
   # the same jq the script uses, with placeholders filled
   check "agent $n: rendered payload is valid JSON with a bundle" bash -c "
-    base=\$(sed -e 's|__HOME__|/home/geoff|g' -e 's|__REPOS__|/opt/devco/repos|g' -e 's|__GATEWAY__|http://127.0.0.1:8080/v1|g' -e 's|__CEO_ID__|00000000-0000-4000-8000-000000000000|g' '$d/agent.json')
+    base=\$(sed -e 's|__HOME__|/home/geoff|g' -e 's|__REPOS__|/opt/devco/repos|g' -e 's|__GATEWAY__|http://127.0.0.1:8080/v1|g' -e 's|__CEO_ID__|00000000-0000-4000-8000-000000000000|g' -e 's|__ARCHITECT_ID__|00000000-0000-4000-8000-000000000000|g' -e 's|__PRINCIPAL_ID__|00000000-0000-4000-8000-000000000000|g' '$d/agent.json')
+    ! grep -q '__[A-Z_]*__' <<<\"\$base\" || { echo 'unfilled placeholder'; exit 1; }
     files='{}'; for k in \$(jq -r '.instructions[]' <<<\"\$base\"); do files=\$(jq --arg k \"\$k\" --rawfile v '$d'/\"\$k\" '. + {(\$k): \$v}' <<<\"\$files\"); done
     jq -e --argjson files \"\$files\" 'del(.instructions, .paused) | . + {instructionsBundle: {entryFile: \"AGENTS.md\", files: \$files}} | .instructionsBundle.files[\"AGENTS.md\"] | length > 100' <<<\"\$base\" >/dev/null"
 done
+check "org chart: CEO > Architect > Principal > juniors; QA under the CEO" bash -c "
+  jq -e '.reportsTo==\"__CEO_ID__\"' '$ROOT/03-paperclip/agents/chief-architect/agent.json' >/dev/null &&
+  jq -e '.reportsTo==\"__ARCHITECT_ID__\"' '$ROOT/03-paperclip/agents/principal-engineer/agent.json' >/dev/null &&
+  for j in pyro webby ops; do jq -e '.reportsTo==\"__PRINCIPAL_ID__\"' \"$ROOT/03-paperclip/agents/\$j/agent.json\" >/dev/null || exit 1; done &&
+  for j in reviewer watchdog; do jq -e '.reportsTo==\"__CEO_ID__\"' \"$ROOT/03-paperclip/agents/\$j/agent.json\" >/dev/null || exit 1; done &&
+  grep -q 'upsert_agent \"\$AG/chief-architect\"' '$ROOT/03-paperclip/create-company.sh' && grep -q 'ARCHITECT_ID=\"\$(upsert_agent' '$ROOT/03-paperclip/create-company.sh'"
 check "CEO model is Sonnet" bash -c "jq -e '.adapterConfig.model==\"claude-sonnet-5-5\"' '$ROOT/03-paperclip/agents/ceo/agent.json' >/dev/null"
 check "skill descriptions <= 60 chars" bash -c "! grep -rh '^description:' '$ROOT'/04-hermes/profiles/*/skills/*/SKILL.md '$ROOT'/04-hermes/profiles/shared-skills/*/SKILL.md | awk -F'description: ' 'length(\$2)>60{f=1} END{exit !f}'"
 check "no stale /opt/devco/qa-run.sh paths" bash -c "! grep -rn '/opt/devco/qa-run\.sh' '$ROOT' --include='*.md' --include='*.sh' --include='*.json' | grep -v 'bin/qa-run.sh'"

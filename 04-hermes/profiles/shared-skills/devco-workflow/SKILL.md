@@ -62,7 +62,7 @@ repo's technology.
    body="$(mktemp)"
    cat > "$body" <<'MD'
    ## Ticket
-   <ticket-id> — <one-line title>   (Paperclip task: <task URL>)
+   <ticket-id> — <one-line title>
 
    ## Summary
    one or two sentences

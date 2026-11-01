@@ -2,7 +2,7 @@
   "name": "webby",
   "title": "Web engineer",
   "role": "engineer",
-  "reportsTo": "__CEO_ID__",
+  "reportsTo": "__PRINCIPAL_ID__",
   "adapterType": "hermes_local",
   "adapterConfig": {
     "hermesCommand": "__HOME__/.local/bin/hermes",

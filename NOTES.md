@@ -74,6 +74,17 @@ Paste `devco versions` here after each phase, with the date.
   AGENTS.md). Fix: the verdict is now one command, `/opt/devco/bin/review-verdict.sh
   approve|changes <pr> <body>`, which posts the comment, sets the label and updates the
   task together; the CEO's hand-back check now verifies the label on GitHub.
+- 2026-10-31 — third ticket (SPI-5 → SPI-6, PR #3): the review *loop* worked (the
+  Reviewer sent it back once with a precise list, pyro fixed exactly that), but two
+  wiring faults showed: (a) after the changes-requested round pyro's status update
+  returned HTTP 403 and Paperclip's recovery re-woke it every few minutes for 45 min
+  (comments succeed, status writes don't — the task was no longer assigned to pyro);
+  the board paused pyro, set the task to In Review by hand and the Reviewer approved;
+  (b) the Reviewer again approved on the task without the GitHub comment/label.
+  Repo changes: the CEO now puts a missing verdict on the PR itself before reporting;
+  the org chart follows the ladder (CEO → Architect → Principal → juniors; QA under the
+  CEO); the PR template no longer has a `<task URL>` placeholder. Root cause of the 403
+  still to be read from pyro's run log.
 - 2026-10-31 — the board opened the Principal and the Chief Architect to the CEO
   (no `protected` assignment policy, Architect not paused) so hard work climbs the
   ladder without a human in the loop. The ladder rules in `ceo/AGENTS.md` are now the
