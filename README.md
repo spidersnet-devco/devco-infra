@@ -211,6 +211,18 @@ Recommended at this point: the nightly mirror and backup to the NAS,
 `devco mirror-timer` and `devco backup --install-timer` (both need the share mounted;
 `GIT_MIRROR_DIR` in `devco.env`).
 
+### Starting a project from nothing
+
+```bash
+/opt/devco/bin/new-project.sh artvault --python     # or --node / --stacks; --public, --description "..."
+```
+
+One command: creates the repo in the org as the bot (private; the org must let members
+create repositories, which is GitHub's default), gives the `agents` team Write, pushes
+AGENTS.md + .gitignore straight to `main` (nothing to review yet), clones it, registers
+the Paperclip project. The CEO runs the same command when a board task says
+`Project: <name> (new; python)`, so you never have to make a repo by hand.
+
 ## Phase 5 — the first ticket
 
 Something small, verifiable, and in one junior's field. Create it in Paperclip as a

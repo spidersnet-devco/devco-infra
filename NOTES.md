@@ -91,6 +91,11 @@ Paste `devco versions` here after each phase, with the date.
   the first run's PAPERCLIP_API_KEY/RUN_ID -> 403 on every write; each recovery wake kept
   the daemon alive. Fix in config.template.yaml: `gateway.standalone: true` (own gateway
   per profile) + `unmanaged_idle_exit_seconds: 5` (fresh daemon per run).
+- 2026-10-31 — `new-project.sh <name> --python|--node|--stacks`: one command creates
+  the GitHub repo in the org as the bot, adds the agents team, pushes the bootstrap
+  files to main and registers the Paperclip project; the CEO may run it when a board
+  task says "Project: <name> (new; …)". After lockdown, installing it into
+  /opt/devco/bin needs sudo (or unlock → install-paperclip.sh → lockdown).
 - 2026-10-31 — added a ninth agent, `pixel`: a Codex-backed graphic/UI designer (SVG
   art, palettes/themes, mockups, scripted PNG assets, design review), reporting to the
   Principal with the other juniors; shares the ChatGPT Plus pool with the Reviewer.

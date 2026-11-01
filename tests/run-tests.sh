@@ -136,7 +136,32 @@ check "approve: comment, label, Paperclip PATCH status=done" bash -c "PATH='$FB:
 : > "$FAKE_LOG"
 check "changes: label changes-requested, no Paperclip call without run vars" bash -c "PATH='$FB:$PATH' bash '$RV' changes $PR '$WORK/body.md' | grep -q 'record the verdict on the task yourself' && grep -q -- '--add-label changes-requested' '$FAKE_LOG' && ! grep -q curl '$FAKE_LOG'"
 check "refuses a non-PR url and an empty body" bash -c "! PATH='$FB:$PATH' bash '$RV' approve https://example.com/x '$WORK/body.md' 2>/dev/null && : > '$WORK/empty.md' && ! PATH='$FB:$PATH' bash '$RV' approve $PR '$WORK/empty.md' 2>/dev/null"
+check "install-paperclip.sh installs new-project.sh" grep -q 'new-project.sh" *\/opt/devco/bin/new-project.sh' "$ROOT/03-paperclip/install-paperclip.sh"
 check "install-paperclip.sh installs review-verdict.sh" grep -q 'review-verdict.sh" /opt/devco/bin/review-verdict.sh' "$ROOT/03-paperclip/install-paperclip.sh"
+
+echo "== new-project.sh (fake gh + a local bare repo standing in for GitHub)"
+NP="$WORK/np"; mkdir -p "$NP/bin" "$NP/home" "$NP/repos" "$NP/origin"; ln -s "$ROOT/03-paperclip/templates" "$NP/templates"
+git init -q --bare "$NP/origin/demo.git"
+seed="$WORK/np-seed"; git init -q -b main "$seed"; echo "# demo" > "$seed/README.md"
+git -C "$seed" -c user.name=t -c user.email=t@t add README.md; git -C "$seed" -c user.name=t -c user.email=t@t commit -qm init; git -C "$seed" push -q "$NP/origin/demo.git" main 2>/dev/null
+printf '#!/usr/bin/env bash\necho "gh $*" >> "$FAKE_LOG"; case "$1 $2" in "api user") echo bot;; "repo view") exit 1;; esac; exit 0\n' > "$NP/bin/gh"; chmod +x "$NP/bin/gh"
+printf 'GITHUB_ORG="spidersnet-devco"\nDEVCO_REPOS="%s/repos"\nGITHUB_BOT_USER="bot"\nGITHUB_BOT_NOREPLY="1+bot@users.noreply.github.com"\n' "$NP" > "$NP/devco.env"
+sed "s|source /opt/devco/devco.env|source $NP/devco.env|" "$ROOT/03-paperclip/new-project.sh" > "$NP/new-project.sh"
+HOME="$NP/home" git config --global url."$NP/origin/".insteadOf "git@github.com:spidersnet-devco/"
+HOME="$NP/home" git config --global core.hooksPath /nonexistent
+export FAKE_LOG="$NP/log"; : > "$FAKE_LOG"
+check "new-project.sh: creates repo, adds team, pushes AGENTS.md + .gitignore to main" bash -c "
+  HOME='$NP/home' PATH='$NP/bin:$PATH' bash '$NP/new-project.sh' demo --python --no-register >/dev/null 2>&1 &&
+  grep -q 'repo create spidersnet-devco/demo --add-readme --private' '$FAKE_LOG' &&
+  grep -q 'teams/agents/repos/spidersnet-devco/demo -f permission=push' '$FAKE_LOG' &&
+  [ \"\$(git -C '$NP/origin/demo.git' ls-tree --name-only main | sort | tr '\\n' ' ')\" = '.gitignore AGENTS.md README.md ' ] &&
+  grep -q demo '$NP/repos/demo/AGENTS.md'"
+check "new-project.sh: second run changes nothing" bash -c "
+  before=\$(git -C '$NP/origin/demo.git' rev-parse main);
+  HOME='$NP/home' PATH='$NP/bin:$PATH' bash '$NP/new-project.sh' demo --python --no-register 2>&1 | grep -q 'already there' &&
+  [ \"\$(git -C '$NP/origin/demo.git' rev-parse main)\" = \"\$before\" ]"
+check "new-project.sh: refuses a bad name before touching gh" bash -c "
+  : > '$FAKE_LOG'; ! HOME='$NP/home' PATH='$NP/bin:$PATH' bash '$NP/new-project.sh' 'Bad Name' >/dev/null 2>&1 && [ ! -s '$FAKE_LOG' ]"
 
 if (( QUICK )); then echo; echo "quick mode: skipping qa-run.sh fixtures"; else
 echo "== qa-run.sh fixtures"

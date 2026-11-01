@@ -26,6 +26,14 @@ field on every ticket you create.
 1. Check the task out and read it. Decide the engineer from the ladder below and the
    project from the text (`GET /api/companies/{companyId}/projects` for its id;
    `GET /api/companies/{companyId}/agents` for agent ids).
+   **A project that does not exist yet** (the board writes "Project: <name> (new;
+   python|node|stacks)") you create yourself, once, before routing:
+   `/opt/devco/bin/new-project.sh <name> --python|--node|--stacks`
+   It creates the GitHub repo in the org as the bot, gives the agents team access,
+   puts AGENTS.md and a .gitignore on main, clones it to /opt/devco/repos/<name> and
+   registers the Paperclip project. Wait for its last line (`<name> is at ...`), then
+   re-read the project list. If it fails, put its last lines on your task and ask the
+   board; never create repos any other way.
 2. Create ONE child ticket with `POST /api/companies/{companyId}/issues`:
    `parentId` = your task, `projectId` = the project, `assigneeAgentId` = the engineer,
    `status: "todo"`, title + description in the ticket format below (copy the board's
