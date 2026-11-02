@@ -13,7 +13,10 @@ Setup (Windows, once):
 2. Make a key for it (Command Prompt): `ssh-keygen -t ed25519 -N "" -f %USERPROFILE%\Documents\devco\id_ed25519_devco`
    and authorize it on the box (PuTTY):
    `mkdir -p ~/.ssh && chmod 700 ~/.ssh && echo '<contents of id_ed25519_devco.pub>' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys`
-3. Test from the PC: `ssh -i %USERPROFILE%\Documents\devco\id_ed25519_devco geoff@hermes.local hostname` → `hermes`.
+3. Windows OpenSSH refuses a key other accounts can read ("UNPROTECTED PRIVATE KEY FILE"),
+   and files under Documents may inherit extra groups (a Codex install adds one). Lock it to you:
+   `icacls %USERPROFILE%\Documents\devco\id_ed25519_devco /inheritance:r /grant:r "%USERNAME%:F"`
+   Then test from the PC: `ssh -i %USERPROFILE%\Documents\devco\id_ed25519_devco geoff@hermes.local hostname` → `hermes`.
 4. Claude desktop app → Settings → Developer → Edit Config, add under `mcpServers`:
    ```json
    "hermes": {
