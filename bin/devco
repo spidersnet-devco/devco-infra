@@ -319,6 +319,7 @@ cmd_install_bin() {  # reinstall what install-paperclip.sh installs, from the re
   local dry=0
   case "${1:-}" in "") ;; --dry-run) dry=1 ;; *) echo "devco install-bin [--dry-run]"; return 2 ;; esac
   [[ -f "$REPO/03-paperclip/install-paperclip.sh" ]] || { echo "devco: repo not found at $REPO (set DEVCO_INFRA_DIR in devco.env)"; return 1; }
+  if (( ! dry )) && [[ ! -w "$BIN" ]]; then echo "devco: $BIN is not writable (lockdown owns it); run:  sudo bash $REPO/bin/devco install-bin"; return 1; fi
   local src dst n=0
   while read -r src dst; do
     dst="$BIN/${dst#/opt/devco/bin/}"; n=$((n+1))
