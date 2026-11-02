@@ -2,7 +2,13 @@
 # devco — the one command for running the company day to day.
 # Installed to /opt/devco/bin/devco by 03-paperclip/install-paperclip.sh.
 #
-#   devco status            everything at a glance: gateway, Paperclip, Hermes, logins, mirror
+#   devco status            everything at a glance: gateway, Paperclip, Hermes, logins, mirror,
+#                           installed scripts vs the repo, agent instructions, tasks waiting on you
+#   devco unstick <ticket>  reset a stranded task through the API: stale cards and recovery actions,
+#                           execution locks, assignee, status, then make sure the agent's run starts
+#                           (--to <agent>, --status, --comment, --cancel-runs, --dry-run, --yes)
+#   devco install-bin       reinstall every script install-paperclip.sh puts in /opt/devco/bin from
+#                           the repo checkout (sudo after lockdown; --dry-run lists what would change)
 #   devco pause             pause the Claude-backed agents (Principal, Architect) before you code
 #   devco resume            resume them when you're done
 #   devco retry             re-run Paperclip's harness check for agents it paused after a failed check
@@ -19,6 +25,8 @@ set -uo pipefail
 source /opt/devco/devco.env 2>/dev/null || { echo "devco: /opt/devco/devco.env missing"; exit 2; }
 export PATH="$HOME/.npm-global/bin:$HOME/.local/bin:/opt/devco/bin:$PATH"
 BASE="${MODEL_GATEWAY_URL%/v1}"
+BIN="${DEVCO_BIN:-/opt/devco/bin}"                                   # where the scripts are installed
+REPO="${DEVCO_INFRA_DIR:-/home/${DEVCO_USER}/devco-infra}"           # the checkout they are installed from
 PC() { paperclipai "$@" --api-base "$PAPERCLIP_URL"; }   # --api-base is a per-command option, so it goes last
 company_id() { PC company list --json 2>/dev/null | jq -r '.[0].id // empty'; }
 agent_ids_by_names() {  # agent_ids_by_names <company> <name>...
@@ -28,6 +36,14 @@ agent_ids_by_names() {  # agent_ids_by_names <company> <name>...
 ok()   { printf '  \033[32m✔\033[0m %s\n' "$*"; }
 bad()  { printf '  \033[31m✘\033[0m %s\n' "$*"; }
 meh()  { printf '  \033[33m•\033[0m %s\n' "$*"; }
+
+# Every "install -m 0755 "$HERE/<src>" /opt/devco/bin/<dst>" line of install-paperclip.sh, as
+# "<src relative to 03-paperclip> <dst>". One list for installing and for checking, so they
+# cannot drift apart (review-verdict.sh was added to the installer after the box was installed
+# and nobody noticed for a day: the Reviewer was told to run a script that did not exist).
+installed_script_pairs() {
+  sed -nE 's#^install -m 0755 "\$HERE/([^"]+)" +(/opt/devco/bin/[^ ]+).*#\1 \2#p' "$REPO/03-paperclip/install-paperclip.sh"
+}
 
 cmd_status() {
   echo "Gateway ($BASE)"
@@ -39,11 +55,13 @@ cmd_status() {
   else bad "not answering (systemctl --user status llama-swap)"; fi
 
   echo "Paperclip ($PAPERCLIP_URL)"
+  local cid="" agents="[]"
   if curl -fsS -m 3 "$PAPERCLIP_URL/api/health" >/dev/null 2>&1; then ok "up"; else bad "down (paperclipai service status)"; fi
   if PC auth whoami --json >/dev/null 2>&1; then
     cid="$(company_id)"
     if [[ -n "$cid" ]]; then
-      PC agent list --company-id "$cid" --json 2>/dev/null | jq -r '.[] | "    \(.name): \(.status) [\(.adapterType)\(if .adapterConfig.model then " " + .adapterConfig.model else "" end)]\(if .lifecycleError then "  <- harness check failed; fix, then: devco retry" else "" end)"'
+      agents="$(PC agent list --company-id "$cid" --json 2>/dev/null || echo '[]')"
+      jq -r '.[] | "    \(.name): \(.status) [\(.adapterType)\(if .adapterConfig.model then " " + .adapterConfig.model else "" end)]\(if .lifecycleError then "  <- harness check failed; fix, then: devco retry" else "" end)"' <<<"$agents"
     fi
   else meh "CLI not logged in (paperclipai auth login --api-base $PAPERCLIP_URL)"; fi
 
@@ -60,6 +78,262 @@ cmd_status() {
 
   echo "Lockdown"
   [[ -f /etc/sudoers.d/90-devco ]] && meh "passwordless sudo still on (run lockdown.sh when setup is done)" || ok "passwordless sudo off"
+
+  echo "Installed scripts ($BIN vs the repo)"
+  if [[ -f "$REPO/03-paperclip/install-paperclip.sh" ]]; then
+    local src dst missing=() behind=()
+    while read -r src dst; do
+      dst="$BIN/${dst#/opt/devco/bin/}"
+      if [[ ! -e "$dst" ]]; then missing+=("${dst##*/}")
+      elif ! cmp -s "$REPO/03-paperclip/$src" "$dst"; then behind+=("${dst##*/}"); fi
+    done < <(installed_script_pairs)
+    diff -rq "$REPO/03-paperclip/agents" "$BIN/agents" >/dev/null 2>&1 || behind+=("agents/")
+    diff -rq "$REPO/03-paperclip/routines" "$BIN/routines" >/dev/null 2>&1 || behind+=("routines/")
+    (( ${#missing[@]} )) && bad "missing: ${missing[*]}  -> sudo bash $REPO/bin/devco install-bin"
+    (( ${#behind[@]} )) && meh "behind the repo: ${behind[*]}  -> sudo bash $REPO/bin/devco install-bin"
+    (( ${#missing[@]} + ${#behind[@]} == 0 )) && ok "all match $REPO"
+  else meh "repo not found at $REPO (set DEVCO_INFRA_DIR in devco.env to compare)"; fi
+
+  echo "Wiring (scripts the agents' instructions name)"
+  local ref missing_refs=()
+  while read -r ref; do
+    [[ -n "$ref" && -x "$BIN/${ref#/opt/devco/bin/}" ]] || missing_refs+=("${ref##*/}")
+  done < <(grep -rhoE '/opt/devco/bin/[A-Za-z0-9_.-]+' "$HOME"/.paperclip/instances/*/companies/*/agents/*/instructions "$HOME"/.hermes/profiles/*/skills "$HOME"/.hermes/profiles/*/SOUL.md 2>/dev/null | sort -u)
+  (( ${#missing_refs[@]} )) && bad "named in instructions but not installed: ${missing_refs[*]}" || ok "every script the instructions name exists"
+
+  if [[ -n "$cid" && -d "$REPO/03-paperclip/agents" ]]; then
+    echo "Agent instructions (Paperclip's copy vs the repo)"
+    local stale=() unwired=() name id dir mdir f file
+    while IFS=$'\t' read -r id name file; do
+      dir="$(tr '[:upper:] ' '[:lower:]-' <<<"$name")"
+      [[ -d "$REPO/03-paperclip/agents/$dir" ]] || continue
+      mdir="$(ls -d "$HOME"/.paperclip/instances/*/companies/"$cid"/agents/"$id"/instructions 2>/dev/null | head -1)"
+      [[ -n "$mdir" ]] || continue
+      # an agent update that replaces adapterConfig drops instructionsFilePath; the adapter then runs with no instructions at all
+      [[ -n "$file" ]] || unwired+=("$name")
+      for f in "$REPO/03-paperclip/agents/$dir"/*.md; do
+        [[ -f "$mdir/$(basename "$f")" ]] || continue
+        cmp -s "$f" "$mdir/$(basename "$f")" || { stale+=("$name"); break; }
+      done
+    done < <(jq -r '.[] | "\(.id)\t\(.name)\t\(.adapterConfig.instructionsFilePath // "")"' <<<"$agents")
+    (( ${#unwired[@]} )) && bad "run WITHOUT their instructions (adapterConfig lost instructionsFilePath): ${unwired[*]}  -> bash $REPO/03-paperclip/create-company.sh"
+    (( ${#stale[@]} )) && meh "stale in Paperclip: ${stale[*]}  -> bash $REPO/03-paperclip/create-company.sh"
+    (( ${#unwired[@]} + ${#stale[@]} == 0 )) && ok "wired and match the repo"
+  fi
+
+  if [[ -n "$cid" ]]; then
+    echo "Tasks waiting on you"
+    local waiting now_s; now_s="$(date -u +%s)"
+    waiting="$(PC issue list --company-id "$cid" --json 2>/dev/null | jq -r --argjson agents "$agents" --argjson now "$now_s" '
+      def aname($i): (first($agents[] | select(.id==$i) | .name) // $i[0:8]);
+      .[] | select(.hiddenAt == null) | select((.status | IN("done","cancelled")) | not)
+      | (if .lastActivityAt then (($now - (.lastActivityAt | sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601)) / 60 | floor) else null end) as $idle
+      | if (.assigneeAgentId == null and .assigneeUserId == null) then "\(.identifier): \(.status), nobody assigned"
+        elif (.status == "in_review" and .assigneeUserId != null) then "\(.identifier): review escalated to the board (approve, or hand it back)"
+        elif ((.status | IN("in_progress","in_review")) and .assigneeAgentId != null and .activeRun == null and $idle != null and $idle >= 10) then "\(.identifier): \(.status) on \(aname(.assigneeAgentId)) but no run for \($idle) min"
+        else empty end')"
+    if [[ -n "$waiting" ]]; then while read -r line; do meh "$line  -> devco unstick ${line%%:*}"; done <<<"$waiting"; else ok "none"; fi
+  fi
+}
+
+usage_unstick() {
+  cat <<'EOF'
+devco unstick <ticket> [--to <agent name|id>] [--status in_progress|in_review|todo]
+                       [--comment "<text>"] [--cancel-runs] [--dry-run] [--yes]
+Resets a stranded task as the board. It shows the task's state and a plan, then: cancels live runs
+(only with --cancel-runs), cancels pending question cards, force-releases stale execution locks,
+stops a Hermes target's gateway, PATCHes status + assignee + comment as the board, and waits for
+the agent's run (waking it if Paperclip does not). Target and status follow the review stage unless
+you override them: an agent that holds the stage is woken back into review; a review escalated to
+the board (three agent rounds) goes back to the engineer with in_progress, the board decision that
+resets Paperclip's round counter; otherwise the return assignee or current agent gets in_progress.
+Connection cards cannot be cancelled by the board; they expire when the assignee changes.
+EOF
+}
+
+cmd_unstick() {
+  local ref="" to="" status="" comment="" cancel_runs=0 yes=0 dry=0
+  while (($#)); do
+    case "$1" in
+      --to) to="${2:?--to needs an agent}"; shift 2 ;;
+      --status) status="${2:?--status needs a value}"; shift 2 ;;
+      --comment) comment="${2:?--comment needs text}"; shift 2 ;;
+      --cancel-runs) cancel_runs=1; shift ;;
+      --dry-run) dry=1; shift ;;
+      --yes|-y) yes=1; shift ;;
+      -h|--help) usage_unstick; return 0 ;;
+      -*) echo "devco unstick: unknown option $1"; usage_unstick; return 2 ;;
+      *) [[ -z "$ref" ]] && ref="$1" || { echo "devco unstick: one ticket at a time"; return 2; }; shift ;;
+    esac
+  done
+  [[ -n "$ref" ]] || { usage_unstick; return 2; }
+  case "$status" in ""|in_progress|in_review|todo) ;; *) echo "devco unstick: --status must be in_progress, in_review or todo"; return 2 ;; esac
+  local cid; cid="$(company_id)"; [[ -n "$cid" ]] || { echo "devco: Paperclip CLI not logged in"; return 1; }
+  local issue; issue="$(PC issue get "$ref" --json 2>/dev/null)" && [[ -n "$(jq -r '.id // empty' <<<"$issue")" ]] || { echo "devco: no issue '$ref'"; return 1; }
+  local agents; agents="$(PC agent list --company-id "$cid" --json 2>/dev/null)" || { echo "devco: cannot list agents"; return 1; }
+  agent_name() { jq -r --arg i "${1:-}" '.[] | select(.id==$i) | .name' <<<"$agents"; }
+  name_or_dash() { if [[ -n "${1:-}" ]]; then agent_name "$1"; else echo -; fi; }
+
+  local id ident title st ver cur_agent cur_user rounds part_type part_agent return_agent checkout exec_run
+  id="$(jq -r .id <<<"$issue")"; ident="$(jq -r .identifier <<<"$issue")"; title="$(jq -r '.title[0:70]' <<<"$issue")"
+  st="$(jq -r .status <<<"$issue")"; ver="$(jq -r .statusVersion <<<"$issue")"
+  cur_agent="$(jq -r '.assigneeAgentId // empty' <<<"$issue")"; cur_user="$(jq -r '.assigneeUserId // empty' <<<"$issue")"
+  rounds="$(jq -r '.executionState.changesRequestedCount // 0' <<<"$issue")"
+  part_type="$(jq -r '.executionState.currentParticipant.type // empty' <<<"$issue")"
+  part_agent="$(jq -r '.executionState.currentParticipant.agentId // empty' <<<"$issue")"
+  return_agent="$(jq -r '.executionState.returnAssignee.agentId // empty' <<<"$issue")"
+  checkout="$(jq -r '.checkoutRunId // empty' <<<"$issue")"; exec_run="$(jq -r '.executionRunId // empty' <<<"$issue")"
+  case "$st" in done|cancelled) echo "devco: $ident is $st; reopen it from the task page if that is what you want"; return 1 ;; esac
+
+  # the default target and status follow the review stage
+  local default_id default_status why escalated=0
+  if [[ "$part_type" == "agent" && -n "$part_agent" ]]; then
+    default_id="$part_agent"; default_status="in_review"; why="$(agent_name "$part_agent") holds the review stage; re-entering review wakes it"
+  elif [[ "$part_type" == "user" ]]; then
+    default_id="${return_agent:-$cur_agent}"; default_status="in_progress"; (( rounds >= 3 )) && escalated=1
+    why="the review is escalated to the board; a board decision hands it back and resets the round counter"
+  else
+    default_id="${return_agent:-$cur_agent}"; default_status="in_progress"; why="the task's return assignee or current agent"
+  fi
+  [[ -n "$status" ]] || status="$default_status"
+  local target_id target_name target_adapter
+  if [[ -n "$to" ]]; then
+    target_id="$(jq -r --arg t "$to" '.[] | select(.id==$t or (.name|ascii_downcase)==($t|ascii_downcase)) | .id' <<<"$agents" | head -1)"
+    [[ -n "$target_id" ]] || { echo "devco: no agent '$to'. Agents: $(jq -r '[.[].name] | join(", ")' <<<"$agents")"; return 1; }
+  else
+    target_id="$default_id"
+    [[ -n "$target_id" ]] || { echo "devco: $ident has no review stage, return assignee or agent; say who gets it: --to <agent>"; return 1; }
+  fi
+  target_name="$(agent_name "$target_id")"
+  target_adapter="$(jq -r --arg i "$target_id" '.[] | select(.id==$i) | .adapterType' <<<"$agents")"
+  if (( escalated )) && [[ "$status" == "in_progress" && -n "$return_agent" && "$target_id" != "$return_agent" ]]; then
+    echo "devco: this review is escalated to the board; Paperclip routes a board in_progress decision to $(agent_name "$return_agent") whatever --to says."
+    echo "       Use --to $(agent_name "$return_agent"), or --status in_review to put a different reviewer on the stage."; return 1
+  fi
+  local stage_discarded=0; [[ "$part_type" == "agent" && -n "$part_agent" && "$target_id" != "$part_agent" ]] && stage_discarded=1
+
+  # what is in the way
+  local live pending questions others recovery
+  live="$(PC issue live-runs "$id" --json 2>/dev/null | jq -c '[.[] | {id: (.id // .runId), agentId, status}]' 2>/dev/null || echo '[]')"
+  pending="$(PC issue interactions "$id" --json 2>/dev/null | jq -c '[.[] | select(.status=="pending")]' 2>/dev/null || echo '[]')"
+  questions="$(jq -c '[.[] | select(.kind=="ask_user_questions")]' <<<"$pending")"
+  others="$(jq -c '[.[] | select(.kind!="ask_user_questions")]' <<<"$pending")"
+  recovery="$(PC issue recovery-actions "$id" --json 2>/dev/null | jq -c '[.active // empty] + [.actions[]? | select(.status=="active" or .status=="escalated")] | unique_by(.id)' 2>/dev/null || echo '[]')"
+  local n_live n_q n_o n_rec
+  n_live="$(jq length <<<"$live")"; n_q="$(jq length <<<"$questions")"; n_o="$(jq length <<<"$others")"; n_rec="$(jq length <<<"$recovery")"
+
+  echo "$ident  $title"
+  echo "  status $st (v$ver)   agent: $(name_or_dash "$cur_agent")   board user: ${cur_user:--}"
+  echo "  review stage: participant $( [[ "$part_type" == "user" ]] && echo "the board" || name_or_dash "$part_agent"), $rounds agent round(s) of changes requested, returns to $(name_or_dash "$return_agent")"
+  echo "  live runs: $n_live$(jq -r '.[] | "  [\(.status) \(.agentId[0:8]) \(.id[0:8])]"' <<<"$live" | tr -d '\n')"
+  echo "  pending cards: $n_q question(s), $n_o other(s)$(jq -r '.[] | "  [\(.kind) \(.title // "")]"' <<<"$pending" | tr -d '\n')"
+  echo "  open recovery actions: $n_rec$(jq -r '.[] | "  [\(.kind // .cause // "?") \(.status // "")]"' <<<"$recovery" | tr -d '\n')"
+  echo "  locks: checkout ${checkout:--}  execution ${exec_run:--}"
+  [[ -n "$comment" ]] || comment="Board reset (devco unstick): the previous hand-off was lost, nothing else changed. Continue from the latest review comment above and hand back with the PR URL and the QA line. (Was: $st, agent $(name_or_dash "$cur_agent"), board user ${cur_user:-none}, $rounds review round(s).)"
+
+  local hermes_profile=""
+  if [[ "$target_adapter" == "hermes_local" && -d "$HOME/.hermes/profiles/${target_name,,}" ]] && command -v hermes >/dev/null 2>&1; then
+    hermes_profile="$HOME/.hermes/profiles/${target_name,,}"
+  fi
+
+  echo "Plan"
+  local step=0
+  if (( n_live )); then
+    step=$((step+1))
+    if (( cancel_runs )); then echo "  $step. cancel $n_live live run(s), then check none is left"
+    else echo "  $step. STOP: $n_live run(s) are live on this task; let them finish, or re-run with --cancel-runs"; fi
+  fi
+  (( n_q )) && { step=$((step+1)); echo "  $step. cancel $n_q pending question card(s) (reason: devco unstick)"; }
+  if (( n_o )); then
+    step=$((step+1))
+    if [[ "$target_id" == "$cur_agent" ]]; then echo "  $step. NOTE: $n_o pending card(s) (connection requests etc.) stay pending because the assignee does not change; clear them in the UI or hand the task to another agent"
+    else echo "  $step. $n_o pending card(s) (connection requests etc.) expire when the assignee changes (checked afterwards)"; fi
+  fi
+  (( n_rec )) && { step=$((step+1)); echo "  $step. $n_rec open recovery action(s): Paperclip closes them when the board changes owner or status (checked afterwards)"; }
+  [[ -n "$checkout$exec_run" ]] && { step=$((step+1)); echo "  $step. force-release the execution locks (board admin)"; }
+  [[ -n "$hermes_profile" ]] && { step=$((step+1)); echo "  $step. stop $target_name's Hermes gateway so no stale run credentials survive (skipped if it is busy)"; }
+  step=$((step+1)); echo "  $step. set status $status, assignee $target_name ($why), with the comment:"; echo "       $comment"
+  (( stage_discarded )) && echo "       NOTE: the review stage held by $(agent_name "$part_agent") is discarded by this change"
+  step=$((step+1)); echo "  $step. wait for $target_name's run to start (wake it if Paperclip does not)"
+  if (( n_live && ! cancel_runs )); then echo "Refusing: live run(s) present and --cancel-runs not given."; return 1; fi
+  (( dry )) && { echo "(dry run: nothing changed)"; return 0; }
+  if (( ! yes )); then
+    read -r -p "Proceed? [y/N] " ans; [[ "$ans" =~ ^[Yy] ]] || { echo "nothing changed"; return 1; }
+  fi
+
+  local rid iid
+  for rid in $(jq -r '.[].id' <<<"$live"); do
+    PC run cancel "$rid" >/dev/null && echo "  cancelled run $rid" || { echo "  !! could not cancel run $rid; stopping here"; return 1; }
+  done
+  if (( n_live )); then
+    local still; still="$(PC issue live-runs "$id" --json 2>/dev/null | jq 'length' 2>/dev/null || echo 1)"
+    (( still == 0 )) || { echo "  !! $still run(s) still live after cancelling; stopping here (try again in a minute)"; return 1; }
+  fi
+  for iid in $(jq -r '.[].id' <<<"$questions"); do
+    PC issue interaction:cancel "$id" "$iid" --reason "devco unstick by the board" >/dev/null && echo "  cancelled question card $iid" || echo "  !! could not cancel card $iid (left as is)"
+  done
+  if [[ -n "$checkout$exec_run" ]]; then PC issue force-release "$id" >/dev/null && echo "  released execution locks" || echo "  !! force-release failed (continuing)"; fi
+  if [[ -n "$hermes_profile" ]]; then
+    local now_status busy
+    now_status="$(PC agent get "$target_id" --json 2>/dev/null | jq -r '.status // "unknown"' 2>/dev/null)"
+    busy="$(PC run live --company-id "$cid" --json 2>/dev/null | jq -r --arg a "$target_id" '[.[] | select(.agentId==$a)] | length' 2>/dev/null || echo 0)"
+    if [[ "$now_status" == "running" ]] || (( busy > 0 )); then echo "  $target_name is busy ($now_status, $busy live run(s)); leaving its gateway alone"
+    else HERMES_HOME="$hermes_profile" hermes gateway stop >/dev/null 2>&1; echo "  stopped $target_name's Hermes gateway (if one was running)"; fi
+  fi
+  local updated
+  if ! updated="$(PC issue update "$id" --status "$status" --assignee-agent-id "$target_id" --comment "$comment" --json 2>&1)"; then
+    echo "  !! issue update failed:"; sed 's/^/     /' <<<"$updated" | head -5
+    echo "     (an escalated review can only be advanced by the board user it was escalated to; run this as that user, or use the task page)"
+    return 1
+  fi
+  local new_status new_agent follow_id follow_name
+  new_status="$(jq -r '.status // empty' <<<"$updated" 2>/dev/null)"; new_agent="$(jq -r '.assigneeAgentId // empty' <<<"$updated" 2>/dev/null)"
+  echo "  $ident -> ${new_status:-?} (v$(jq -r '.statusVersion // "?"' <<<"$updated" 2>/dev/null)), agent $(name_or_dash "$new_agent")"
+  follow_id="${new_agent:-$target_id}"; follow_name="$(agent_name "$follow_id")"
+  [[ -n "$new_agent" && "$new_agent" != "$target_id" ]] && echo "  !! Paperclip's review policy routed this to $follow_name, not $target_name; following $follow_name"
+  [[ -n "$new_status" && "$new_status" != "$status" ]] && echo "  !! Paperclip recorded status $new_status, not $status"
+  if (( n_rec )); then
+    local rec_left; rec_left="$(PC issue recovery-actions "$id" --json 2>/dev/null | jq -r 'if .active == null then 0 else 1 end' 2>/dev/null || echo 0)"
+    (( rec_left == 0 )) && echo "  recovery action closed by the update" || echo "  !! a recovery action is still open; resolve it on the task page (Recovery card)"
+  fi
+  if (( n_o )); then
+    local o_left; o_left="$(PC issue interactions "$id" --json 2>/dev/null | jq -r '[.[] | select(.status=="pending" and .kind!="ask_user_questions")] | length' 2>/dev/null || echo 0)"
+    (( o_left == 0 )) && echo "  pending cards expired with the reassignment" || echo "  !! $o_left card(s) still pending; the agent may yield on them again (clear them in the UI)"
+  fi
+
+  local waited=0 limit="${DEVCO_UNSTICK_WAIT:-45}" woke=0 run
+  while (( waited < limit )); do
+    run="$(PC issue live-runs "$id" --json 2>/dev/null | jq -r --arg a "$follow_id" '.[] | select(.agentId==$a) | "\(.status) \((.id // .runId))"' 2>/dev/null | head -1)"
+    [[ -n "$run" ]] && { echo "  $follow_name's run: $run"; return 0; }
+    [[ "$(PC agent get "$follow_id" --json 2>/dev/null | jq -r '.status // ""' 2>/dev/null)" == "running" ]] && { echo "  $follow_name is running"; return 0; }
+    if (( waited >= 15 && ! woke )); then
+      PC agent wake "$follow_id" --source on_demand --reason "devco unstick $ident" --payload "{\"issueId\":\"$id\"}" >/dev/null 2>&1 && echo "  no run yet; asked Paperclip to wake $follow_name on $ident"; woke=1
+    fi
+    sleep 3; waited=$((waited+3))
+  done
+  if (( limit > 0 )); then echo "  !! no run for $follow_name after ${limit}s: is it paused? (devco status; paperclipai agent get $follow_id)"; return 1; fi
+  return 0
+}
+
+cmd_install_bin() {  # reinstall what install-paperclip.sh installs, from the repo; the one list lives there
+  local dry=0
+  case "${1:-}" in "") ;; --dry-run) dry=1 ;; *) echo "devco install-bin [--dry-run]"; return 2 ;; esac
+  [[ -f "$REPO/03-paperclip/install-paperclip.sh" ]] || { echo "devco: repo not found at $REPO (set DEVCO_INFRA_DIR in devco.env)"; return 1; }
+  local src dst n=0
+  while read -r src dst; do
+    dst="$BIN/${dst#/opt/devco/bin/}"; n=$((n+1))
+    if (( dry )); then
+      if [[ ! -e "$dst" ]]; then echo "  install  ${dst##*/}  (missing)"; elif cmp -s "$REPO/03-paperclip/$src" "$dst"; then echo "  same     ${dst##*/}"; else echo "  update   ${dst##*/}"; fi
+      continue
+    fi
+    install -m 0755 "$REPO/03-paperclip/$src" "$dst" || return 1
+  done < <(installed_script_pairs)
+  (( n )) || { echo "devco: found no install lines in install-paperclip.sh"; return 1; }
+  if (( dry )); then echo "  refresh  agents/ routines/"; echo "(dry run: nothing changed; run: sudo bash $REPO/bin/devco install-bin)"; return 0; fi
+  rm -rf "$BIN/agents" "$BIN/routines" && cp -r "$REPO/03-paperclip/agents" "$REPO/03-paperclip/routines" "$BIN/" || return 1
+  if [[ $EUID -eq 0 ]]; then chown -R root:root "$BIN" && chmod -R a+rX,go-w "$BIN"; fi   # keep lockdown's ownership
+  echo "installed $n scripts + agents/ routines/ into $BIN from $REPO"
+  echo "Agent definitions changed too? -> bash $REPO/03-paperclip/create-company.sh (as ${DEVCO_USER}, not root)"
 }
 
 cmd_pause_resume() {  # pause|resume
@@ -91,6 +365,7 @@ cmd_check_env() {
   [[ "$DEVCO_LAN_IP" == "10.86.86.20" ]] && meh "DEVCO_LAN_IP is still the example value"
   [[ -n "${GITHUB_BOT_NOREPLY:-}" ]] && ok "GITHUB_BOT_NOREPLY set" || meh "GITHUB_BOT_NOREPLY empty (needed before github-setup.sh)"
   [[ -d "$DEVCO_MODELS" ]] && ok "models dir $DEVCO_MODELS ($(du -sh "$DEVCO_MODELS" 2>/dev/null | cut -f1))" || bad "models dir missing"
+  [[ -d "$REPO" ]] && ok "repo checkout $REPO" || meh "repo checkout not at $REPO (set DEVCO_INFRA_DIR; devco status and install-bin use it)"
   grep -qE '(_KEY|_TOKEN|_SECRET)=.{12,}' /opt/devco/devco.env && meh "devco.env holds what looks like a secret; see SECRETS.md" || true
   return $rc
 }
@@ -122,6 +397,8 @@ cmd_logs() {
 
 case "${1:-}" in
   status)       cmd_status ;;
+  unstick)      shift; cmd_unstick "$@" ;;
+  install-bin)  shift; cmd_install_bin "$@" ;;
   pause)        cmd_pause_resume pause ;;
   resume)       cmd_pause_resume resume ;;
   retry)        cmd_retry ;;
@@ -138,5 +415,5 @@ case "${1:-}" in
   unlock)       [[ $EUID -eq 0 ]] || { echo "run with sudo"; exit 1; }
                 chown -R "${DEVCO_USER}:${DEVCO_USER}" /opt/devco/bin /opt/llama-swap/config.yaml /opt/devco/devco.env
                 echo "unlocked for ${DEVCO_USER}. Re-lock with /opt/devco/bin/lockdown.sh" ;;
-  *)            sed -n '2,20p' "$0"; exit 2 ;;
+  *)            sed -n '2,26p' "$0"; exit 2 ;;
 esac

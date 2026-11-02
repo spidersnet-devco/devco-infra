@@ -15,6 +15,9 @@ ok()   { PASS=$((PASS+1)); echo "  ok   $*"; }
 bad()  { FAIL=$((FAIL+1)); echo "  FAIL $*"; }
 check(){ local label="$1"; shift; if "$@" >/tmp/devco-test.out 2>&1; then ok "$label"; else bad "$label"; sed 's/^/       /' /tmp/devco-test.out | head -20; fi; }
 WORK="$(mktemp -d)"; trap 'rm -rf "$WORK"' EXIT
+# lockdown.sh installs a pre-push hook for this user that refuses every push to main, including the
+# fake origins these tests push to; the hook lets humans through with this variable.
+export DEVCO_ALLOW_MAIN=1
 
 echo "== bash syntax"
 mapfile -t SCRIPTS < <(cd "$ROOT" && git ls-files '*.sh' 'bin/*' 2>/dev/null || find "$ROOT" -name '*.sh' -not -path '*/.git/*')
@@ -142,6 +145,7 @@ check "refuses a non-PR url and an empty body" bash -c "! PATH='$FB:$PATH' bash 
 check "install-paperclip.sh installs hermes-run" grep -q 'hermes-run.sh" *\/opt/devco/bin/hermes-run' "$ROOT/03-paperclip/install-paperclip.sh"
 check "every agent is told GitHub needs no Paperclip connection" bash -c "for n in reviewer pixel ceo watchdog principal-engineer chief-architect; do grep -q 'never ask for a \"connection\"' \"$ROOT/03-paperclip/agents/\$n/AGENTS.md\" || exit 1; done; grep -q 'never search for or request a Paperclip' '$ROOT/04-hermes/profiles/shared-skills/devco-workflow/SKILL.md'"
 check "install-paperclip.sh installs new-project.sh" grep -q 'new-project.sh" *\/opt/devco/bin/new-project.sh' "$ROOT/03-paperclip/install-paperclip.sh"
+check "create-company.sh carries Paperclip's instruction keys through replaceAdapterConfig and re-wires lost ones" bash -c "grep -q 'adapterConfig += \$keep' '$ROOT/03-paperclip/create-company.sh' && grep -q 'instructions-path:update' '$ROOT/03-paperclip/create-company.sh' && grep -q 'wire_instructions \"\$id\" \"\$name\"' '$ROOT/03-paperclip/create-company.sh' && grep -q 'exit \"\${WIRING_RC:-0}\"' '$ROOT/03-paperclip/create-company.sh' && jq -ne --argjson keep '{\"instructionsFilePath\":\"/m/AGENTS.md\",\"instructionsBundleMode\":\"managed\"}' '{adapterConfig:{command:\"c\"},permissions:{},instructionsBundle:{}} | del(.permissions, .role, .name, .instructionsBundle) | .adapterConfig += \$keep | . + {replaceAdapterConfig: true} | .adapterConfig.instructionsFilePath==\"/m/AGENTS.md\" and .adapterConfig.command==\"c\" and .replaceAdapterConfig and (has(\"instructionsBundle\")|not)' >/dev/null"
 check "install-paperclip.sh installs review-verdict.sh" grep -q 'review-verdict.sh" /opt/devco/bin/review-verdict.sh' "$ROOT/03-paperclip/install-paperclip.sh"
 
 echo "== new-project.sh (fake gh + a local bare repo standing in for GitHub)"
@@ -159,7 +163,7 @@ check "new-project.sh: creates repo, adds team, pushes AGENTS.md + .gitignore to
   HOME='$NP/home' PATH='$NP/bin:$PATH' bash '$NP/new-project.sh' demo --python --no-register >/dev/null 2>&1 &&
   grep -q 'repo create spidersnet-devco/demo --add-readme --private' '$FAKE_LOG' &&
   grep -q 'teams/agents/repos/spidersnet-devco/demo -f permission=push' '$FAKE_LOG' &&
-  [ \"\$(git -C '$NP/origin/demo.git' ls-tree --name-only main | sort | tr '\\n' ' ')\" = '.gitignore AGENTS.md README.md ' ] &&
+  [ \"\$(git -C '$NP/origin/demo.git' ls-tree --name-only main | LC_ALL=C sort | tr '\\n' ' ')\" = '.gitignore AGENTS.md README.md ' ] &&
   grep -q demo '$NP/repos/demo/AGENTS.md'"
 check "new-project.sh: second run changes nothing" bash -c "
   before=\$(git -C '$NP/origin/demo.git' rev-parse main);
@@ -216,6 +220,47 @@ check "branch mode: failing branch -> FAIL, main checkout untouched" bash -c "ba
 O="$(mkrepo override)"; printf '#!/usr/bin/env bash\necho custom; exit 0\n' > "$O/.devco-qa.sh"; chmod +x "$O/.devco-qa.sh"
 check ".devco-qa.sh override is honoured" bash -c "out=\$(bash '$QA' '$O'); grep -q 'repo override' <<<\"\$out\" && tail -1 <<<\"\$out\" | grep -q 'QA: PASS'"
 fi
+
+echo "== devco unstick / install-bin (fake paperclipai + hermes)"
+DV="$WORK/devco"; mkdir -p "$DV/bin" "$DV/home/.hermes/profiles/pyro" "$DV/optbin"
+cat > "$DV/bin/paperclipai" <<'EOF'
+#!/usr/bin/env bash
+echo "paperclipai $*" >> "$FAKE_LOG"
+case "$1 $2" in
+  "company list") echo '[{"id":"c1"}]' ;;
+  "agent list") echo '[{"id":"A-PYRO","name":"pyro","adapterType":"hermes_local","status":"idle"},{"id":"A-REV","name":"Reviewer","adapterType":"codex_local","status":"idle"}]' ;;
+  "agent get") echo '{"id":"'"$3"'","status":"idle"}' ;;
+  "issue get") case "${FAKE_STATE:-escalated}" in
+      parked) echo '{"id":"I1","identifier":"SPI-12","title":"Backend","status":"in_progress","statusVersion":13,"assigneeAgentId":"A-REV","assigneeUserId":null,"checkoutRunId":null,"executionRunId":null,"executionState":{"changesRequestedCount":0,"currentParticipant":{"type":"agent","userId":null,"agentId":"A-REV"},"returnAssignee":{"type":"agent","agentId":"A-PYRO"}}}' ;;
+      done) echo '{"id":"I1","identifier":"SPI-11","title":"Brand","status":"done","statusVersion":9,"assigneeAgentId":"A-REV","assigneeUserId":null,"executionState":null}' ;;
+      *) echo '{"id":"I1","identifier":"SPI-12","title":"Backend","status":"in_review","statusVersion":10,"assigneeAgentId":null,"assigneeUserId":"U1","checkoutRunId":null,"executionRunId":"R-EXEC","executionState":{"changesRequestedCount":3,"currentParticipant":{"type":"user","userId":"U1","agentId":null},"returnAssignee":{"type":"agent","agentId":"A-PYRO"}}}' ;;
+    esac ;;
+  "issue live-runs") if [[ "${FAKE_LIVE:-0}" == 1 && ! -e "$FAKE_LOG.cancelled" ]]; then echo '[{"id":"R-LIVE","agentId":"A-REV","status":"running"}]'; else echo '[]'; fi ;;
+  "run cancel") touch "$FAKE_LOG.cancelled"; echo '{}' ;;
+  "run live") echo '[]' ;;
+  "issue interactions") echo '[{"id":"INT-Q","kind":"ask_user_questions","status":"pending","title":"Which port?"},{"id":"INT-C","kind":"connection_intent","status":"pending","title":"Connect GitHub"},{"id":"INT-OLD","kind":"connection_intent","status":"expired","title":"Connect GitHub"}]' ;;
+  "issue recovery-actions") echo '{"active":{"id":"RA1","status":"active","kind":"deliberate_wait_without_target"},"actions":[{"id":"RA1","status":"active","kind":"deliberate_wait_without_target"},{"id":"RA0","status":"resolved","kind":"x"}]}' ;;
+  "issue update") st=""; ag=""; while (($#)); do case "$1" in --status) st="$2"; shift 2;; --assignee-agent-id) ag="$2"; shift 2;; *) shift;; esac; done
+                  echo '{"id":"I1","status":"'"$st"'","statusVersion":14,"assigneeAgentId":"'"$ag"'"}' ;;
+  *) echo '{}' ;;
+esac
+EOF
+printf '#!/usr/bin/env bash\necho "hermes $* HERMES_HOME=$HERMES_HOME" >> "$FAKE_LOG"\n' > "$DV/bin/hermes"
+chmod +x "$DV/bin"/*
+printf 'DEVCO_USER=geoff\nPAPERCLIP_URL=http://x\nMODEL_GATEWAY_URL=http://g/v1\nDEVCO_INFRA_DIR="%s"\nDEVCO_BIN="%s"\n' "$ROOT" "$DV/optbin" > "$DV/devco.env"
+sed "s|source /opt/devco/devco.env|source $DV/devco.env|" "$ROOT/bin/devco" > "$DV/devco"
+export FAKE_LOG="$DV/log"
+DVC="HOME='$DV/home' PATH='$DV/bin:$PATH' DEVCO_UNSTICK_WAIT=0 bash '$DV/devco'"
+reset_fake() { : > "$FAKE_LOG"; rm -f "$FAKE_LOG.cancelled"; }; export -f reset_fake
+check "unstick --dry-run (escalated review): shows cards, recovery, locks, the engineer as target; calls nothing" bash -c "reset_fake; out=\$($DVC unstick SPI-12 --dry-run) && grep -q 'ask_user_questions' <<<\"\$out\" && grep -q 'connection_intent' <<<\"\$out\" && grep -q 'open recovery actions: 1' <<<\"\$out\" && grep -q 'force-release' <<<\"\$out\" && grep -q 'status in_progress, assignee pyro' <<<\"\$out\" && grep -q 'escalated to the board' <<<\"\$out\" && ! grep -qE 'issue update|interaction:cancel|recovery:resolve|force-release|run cancel|hermes' '$FAKE_LOG'"
+check "unstick --yes (escalated): cancels only the question card, no recovery:resolve, releases locks, stops the gateway, hands back to pyro" bash -c "reset_fake; $DVC unstick SPI-12 --yes >/dev/null && grep -q 'issue interaction:cancel I1 INT-Q' '$FAKE_LOG' && ! grep -qE 'INT-C|INT-OLD|recovery:resolve' '$FAKE_LOG' && grep -q 'issue force-release I1' '$FAKE_LOG' && grep -q 'hermes gateway stop HERMES_HOME=$DV/home/.hermes/profiles/pyro' '$FAKE_LOG' && grep -q -- 'issue update I1 --status in_progress --assignee-agent-id A-PYRO --comment' '$FAKE_LOG'"
+check "unstick refuses a task with a live run unless --cancel-runs, then cancels by the run's id" bash -c "reset_fake; ! FAKE_LIVE=1 $DVC unstick SPI-12 --yes >/dev/null 2>&1 && ! grep -q 'issue update' '$FAKE_LOG' && reset_fake && FAKE_LIVE=1 $DVC unstick SPI-12 --yes --cancel-runs >/dev/null && grep -q 'run cancel R-LIVE' '$FAKE_LOG' && grep -q 'issue update' '$FAKE_LOG'"
+check "unstick (escalated) refuses --to someone else with in_progress, allows it with --status in_review" bash -c "reset_fake; ! $DVC unstick SPI-12 --yes --to reviewer >/dev/null 2>&1 && ! grep -q 'issue update' '$FAKE_LOG' && reset_fake && $DVC unstick SPI-12 --yes --to reviewer --status in_review --comment hi >/dev/null && grep -q -- 'issue update I1 --status in_review --assignee-agent-id A-REV --comment hi' '$FAKE_LOG' && ! grep -q hermes '$FAKE_LOG' && ! $DVC unstick SPI-12 --yes --to nobody >/dev/null 2>&1"
+check "unstick (stage held by the Reviewer): default is to wake the Reviewer back into review" bash -c "reset_fake; out=\$(FAKE_STATE=parked $DVC unstick SPI-12 --dry-run) && grep -q 'status in_review, assignee Reviewer' <<<\"\$out\" && grep -q 'holds the review stage' <<<\"\$out\" && reset_fake && FAKE_STATE=parked $DVC unstick SPI-12 --yes >/dev/null && grep -q -- 'issue update I1 --status in_review --assignee-agent-id A-REV' '$FAKE_LOG' && ! grep -q hermes '$FAKE_LOG'"
+check "unstick refuses a done task" bash -c "reset_fake; ! FAKE_STATE=done $DVC unstick SPI-11 --yes >/dev/null 2>&1 && ! grep -q 'issue update' '$FAKE_LOG'"
+check "install-bin: unknown flag is refused; --dry-run lists review-verdict.sh as missing and creates nothing" bash -c "! $DVC install-bin --dryrun >/dev/null 2>&1 && [ -z \"\$(ls -A '$DV/optbin')\" ] && out=\$($DVC install-bin --dry-run) && grep -q 'install  review-verdict.sh' <<<\"\$out\" && grep -q 'install  devco' <<<\"\$out\" && [ -z \"\$(ls -A '$DV/optbin')\" ]"
+check "install-bin installs every script install-paperclip.sh installs, plus agents/ and routines/" bash -c "$DVC install-bin >/dev/null && [ -x '$DV/optbin/review-verdict.sh' ] && [ -x '$DV/optbin/devco' ] && [ -x '$DV/optbin/hermes-run' ] && [ -f '$DV/optbin/agents/reviewer/AGENTS.md' ] && [ -x '$DV/optbin/routines/qa-run.sh' ] && cmp -s '$ROOT/03-paperclip/routines/review-verdict.sh' '$DV/optbin/review-verdict.sh'"
+check "reviewer is told to stop with status in_review when the verdict script is missing" grep -q 'If it fails or is missing, stop' "$ROOT/03-paperclip/agents/reviewer/AGENTS.md"
 
 echo
 echo "$PASS passed, $FAIL failed"

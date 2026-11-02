@@ -102,6 +102,27 @@ put_instruction_file() {  # put_instruction_file <agent-id> <bundle-path> <local
   api PUT "/api/agents/$1/instructions-bundle/file" "$payload" >/dev/null && say "  updated $2"
 }
 
+# Paperclip keeps its own keys in adapterConfig for a managed instruction bundle
+# (instructionsFilePath & co.). An update with replaceAdapterConfig:true that omits them
+# drops them, and an agent without instructionsFilePath runs with NO instructions at all
+# (every Reviewer and Watchdog run on 2026-10-31/11-01 did; see NOTES.md). The keys only
+# come back when the entry file is rewritten, so: carry them over, and re-point them when
+# they are gone.
+WIRING_FAILED=()
+bundle_keys() {  # bundle_keys <agent-id> -> those keys from the live adapterConfig, or {}
+  PC agent get "$1" --json 2>/dev/null | jq -c '(.adapterConfig // {}) | {instructionsBundleMode, instructionsRootPath, instructionsEntryFile, instructionsFilePath} | with_entries(select(.value != null))' 2>/dev/null || echo '{}'
+}
+wire_instructions() {  # wire_instructions <agent-id> <name>: make sure adapterConfig points at the managed AGENTS.md
+  local id="$1" name="$2" root
+  [[ -z "$(jq -r '.instructionsFilePath // empty' <<<"$(bundle_keys "$id")")" ]] || return 0
+  root="$(api GET "/api/agents/$id/instructions-bundle" 2>/dev/null | jq -r '.rootPath // empty')"
+  [[ -n "$root" ]] || { echo "!! $name: no managed instruction bundle to point at" >&2; return 1; }
+  PC agent instructions-path:update "$id" --payload-json "$(jq -n --arg p "$root/AGENTS.md" '{path:$p, adapterConfigKey:"instructionsFilePath"}')" >/dev/null \
+    || { echo "!! $name: could not re-point instructionsFilePath at $root/AGENTS.md" >&2; return 1; }
+  [[ -n "$(jq -r '.instructionsFilePath // empty' <<<"$(bundle_keys "$id")")" ]] || { echo "!! $name: instructionsFilePath still missing after re-pointing" >&2; return 1; }
+  say "  re-wired $name's instructions -> $root/AGENTS.md"
+}
+
 upsert_agent() {  # upsert_agent <agent-dir>
   local dir="$1" name payload id perms paused
   payload="$(render "$dir")"
@@ -117,12 +138,15 @@ upsert_agent() {  # upsert_agent <agent-dir>
     [[ -n "$id" ]] || { echo "!! creating agent $name failed (see the API error above)" >&2; exit 1; }
   else
     say "Updating agent: $name ($id)"
-    # keep the existing name/role (the wizard's CEO may be called something else); replace config wholesale
-    PC agent update "$id" --payload-json "$(jq -c 'del(.permissions, .role, .name, .instructionsBundle) + {replaceAdapterConfig: true}' <<<"$payload")" >/dev/null
+    # keep the existing name/role (the wizard's CEO may be called something else); replace config
+    # wholesale, carrying Paperclip's own instruction-bundle keys over (see bundle_keys above)
+    local keep; keep="$(bundle_keys "$id")"
+    PC agent update "$id" --payload-json "$(jq -c --argjson keep "$keep" 'del(.permissions, .role, .name, .instructionsBundle) | .adapterConfig += $keep | . + {replaceAdapterConfig: true}' <<<"$payload")" >/dev/null
     for k in $(jq -r '.instructions[]' "$dir/agent.json"); do
       put_instruction_file "$id" "$k" "$dir/$k" || echo "!! could not update $k for $name" >&2
     done
   fi
+  wire_instructions "$id" "$name" || WIRING_FAILED+=("$name")
   # permissions:update wants the full record
   PC agent permissions:update "$id" --payload-json \
      "$(jq -c '{canCreateAgents: (.canCreateAgents // false), canCreateSkills: (.canCreateSkills // false), canAssignTasks: (.canAssignTasks // true)} + (if .authorizationPolicy then {authorizationPolicy} else {} end)' <<<"$perms")" >/dev/null
@@ -251,6 +275,20 @@ $(sed 's/^/     /' <<<"$BROKEN")
 EOF
 fi
 
+if (( ${#WIRING_FAILED[@]} )); then
+  cat <<EOF
+
+!! These agents are NOT wired to their instructions (adapterConfig.instructionsFilePath is
+   missing, so their harness runs them with no AGENTS.md at all): ${WIRING_FAILED[*]}
+   Point them at the managed bundle by hand:
+     paperclipai agent instructions-path:update <agent-id> --payload-json '{"path":"<rootPath>/AGENTS.md","adapterConfigKey":"instructionsFilePath"}' --api-base $PAPERCLIP_URL
+   (rootPath: paperclipai agent instructions-bundle <agent-id> --json). 'devco status' shows the same check.
+EOF
+  WIRING_RC=1
+else
+  WIRING_RC=0
+fi
+
 cat <<EOF
 
 =====================================================================
@@ -270,3 +308,5 @@ Next:
   3. When you start coding interactively:  devco pause   (resume with devco resume)
 =====================================================================
 EOF
+
+exit "${WIRING_RC:-0}"

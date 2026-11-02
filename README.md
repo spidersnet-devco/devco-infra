@@ -299,7 +299,14 @@ model is resident, or drop `coder-fast` to `--parallel 2`.
 - `http://<ip>:3100` on your phone is the company. Inbox = things waiting on you
   (questions, escalation requests, join requests, approvals).
 - `devco status` on the box: gateway, Paperclip agents and their models, Hermes
-  profiles, logins, mirror, lockdown state. `devco logs gateway|paperclip|bootstrap`.
+  profiles, logins, mirror, lockdown state, whether `/opt/devco/bin` and the agents'
+  instructions match this repo, and tasks waiting on you. `devco logs gateway|paperclip|bootstrap`.
+- `devco unstick SPI-12` when a task is stranded (nobody assigned, a review escalated to
+  you, stale cards, an agent that never picks it up): it shows the state and the plan,
+  then resets the task as the board and waits for the agent's run. `--dry-run` first.
+- After lockdown, scripts changed in this repo reach the box with
+  `sudo bash ~/devco-infra/bin/devco install-bin` (the repo copy, so it works even when the
+  installed `devco` is older); agent definitions and instructions: `create-company.sh`.
 - Weekly: read the skills-review task; delete bad skills in
   `~/.hermes/profiles/<name>/skills/`. The juniors learn from successes and will
   happily learn the wrong lesson.

@@ -43,9 +43,11 @@ MD
   task; the runtime sends it straight back to the engineer. The CEO is not in that loop.
 - Do not call the Paperclip API for the verdict yourself; the script does it, and the
   task is not done until the script has printed both its "GitHub:" and "Paperclip:"
-  lines. If it fails, paste its last lines in a comment on the task and stop (leave
-  the task in review) — that is a wiring problem for the board, not something to work
-  around.
+  lines. If it fails or is missing, stop: one PATCH on the task with `status:
+  in_review` and a comment that starts `Review verdict wiring failure` and quotes the
+  script's last lines, then end your run. Do not record the verdict any other way
+  (not a PATCH to in_progress, not a plain comment) — a verdict that is not on GitHub
+  is not a verdict, and the board fixes the wiring and wakes you again.
 - You never use `gh pr review --approve` or `--request-changes`: you share the bot's
   GitHub identity with the engineers, and GitHub refuses both on your own PR.
 - **Third time the same PR reaches you:** stop reviewing. Create a task assigned to the

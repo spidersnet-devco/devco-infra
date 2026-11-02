@@ -121,6 +121,85 @@ Paste `devco versions` here after each phase, with the date.
   ladder without a human in the loop. The ladder rules in `ceo/AGENTS.md` are now the
   only brake on Max-plan spend; `devco pause` still parks all Claude-backed agents.
 
+- 2026-11-02 — SPI-12 (artvault backend, pyro) stranded after the Reviewer's third round; the
+  board's composer did nothing; PR #4 never got a GitHub verdict. Evidence: Paperclip's activity
+  log, run records and transcripts, the server journal, pyro's Hermes session store, and the
+  Paperclip source at the installed tag (v2026.1023.0; line numbers below are from that tag). The
+  write-up was checked by nine independent re-derivations; corrections are folded in.
+  (a) **Who emptied the assignee: Paperclip's review policy, not a recovery step.** After three
+  consecutive *agent* changes-requested decisions on one review stage the stage escalates to the
+  responsible human (`server/src/services/issue-execution-policy.ts`: `DEFAULT_MAX_REVIEW_ROUNDS = 3`
+  l.69, escalation l.867-892, `reviewEscalationUserId` = responsibleUserId, else createdByUserId,
+  l.457-463): `assigneeAgentId` → null, `assigneeUserId` → the board, status `in_review`, and the
+  hold is sticky (l.724-760; another actor changing status or assignee gets 422 "Only the escalated
+  reviewer can advance", a comment alone is accepted). Activity log 06:30:56Z: the Reviewer's PATCH
+  `{status: in_progress}` became round 3 and escalated; the pending "Connect GitHub" card expired
+  with "The task assignment changed" (`issue-thread-interactions.ts:4748-4755`) and the Reviewer's
+  run was cancelled `issue_reassigned`. A *human* decision resets the counter (l.867-868), which is
+  why reassigning as the board worked and why `devco unstick` is a board PATCH.
+  The 403s: pyro's hand-back at 05:28Z reassigned the task to the Reviewer, which cancels pyro's own
+  run (8932ed3c). The Hermes gateway that run had started (pid 107326, 05:16:49Z–06:15:20Z per
+  `~/.hermes/profiles/pyro/logs/gateway-exit-diag.log`) was kept busy by the cancelled run's own
+  orphaned turn, so the 5 s idle exit never came and the next two runs (10dd782b, b4b4ba84, both
+  recorded "succeeded") inherited `PAPERCLIP_RUN_ID=8932ed3c…` — every write 403
+  `agent_run_cancelled` (`middleware/auth.ts:403-413`; journal 05:29–06:14Z, the first three from
+  the cancelled run's own turn). Paperclip's recovery woke pyro again; on a fresh gateway
+  (pid 123097, 06:16:24Z) it "restored" the task into review with a new head, the Reviewer found a
+  new traversal, round 3. `hermes-run` (11:16 PST) stops the profile's gateway before each chat, so
+  a cancelled run can no longer lend its credentials to the next one.
+  (b) **The composer never sends.** The task page used on this box (`enableClassicTaskInterface`
+  off) submits through `ui/src/components/task-chat/TaskChatComposer.tsx:1039`
+  `attemptId = crypto.randomUUID();` — evaluated before anything is sent (the classic
+  `IssueChatThread.tsx:5044` has the same line). Browsers define `crypto.randomUUID` only in secure
+  contexts (HTTPS or localhost); the server speaks plain HTTP on 0.0.0.0:3100 and the board's two
+  sessions are Chromium-based (Opera desktop and Android), so it throws, the catch block puts the
+  draft back, no toast, no request. The journal for both windows the board had the task open
+  (06:49–06:50Z, 19:04–19:20Z) shows only GETs and `POST /issues/<id>/read`; not one browser comment
+  or reassignment has ever reached the server (the single user comment is the CLI unstick). The
+  bundle `@paperclipai/server/ui-dist/assets/index-*.js` has 18 unguarded calls; upstream has a safe
+  `ui/src/lib/uuid.ts createUuid()` ("also work on plain-HTTP LAN") that these call sites do not
+  use, at HEAD too — worth an upstream issue. Workaround: a tunnel,
+  `ssh -L 3100:127.0.0.1:3100 geoff@hermes` → http://localhost:3100 (or Chrome's "Insecure origins
+  treated as secure" flag for the LAN origin). Status/assignee changes from the task page do not go
+  through that path and keep working.
+  (c) **The Reviewer and GitHub — the real cause is in create-company.sh.** Every one of the ten
+  Reviewer runs before 2026-11-02 (and 32 of the Watchdog's 35) ran with **no managed instructions
+  at all**: `create-company.sh`'s update sends `replaceAdapterConfig: true` with an adapterConfig
+  that lacks Paperclip's own bundle keys, so `instructionsFilePath` is dropped
+  (`routes/agents.ts:5231-5236` merges only without that flag) and the adapter injects nothing
+  (adapter events: `instructionsChars 0`, only the repo-AGENTS note). The keys come back only when
+  the same run also rewrites the entry file (19:54 PDT, 11:17 PST), and the next re-run that
+  changes nothing strips them again (20:29 PDT). So the Reviewer followed Paperclip's generic skill:
+  it recorded verdicts by PATCHing the task (`gh pr view` ran read-only in six runs; no
+  `gh pr review/edit` ever), and in SPI-12 rounds 2 and 3 it called `connections_search` +
+  `connection_request github` through the managed MCP gateway, was told a card had gone to the
+  board, and treated GitHub as unavailable. The Watchdog's "fixing the findings itself" (NOTES above)
+  has the same explanation. Separately, `/opt/devco/bin/review-verdict.sh` was never on the box:
+  the installer line was added (16:22 PDT) after the box was installed (15:04 PDT), later one-off
+  `sudo install`s skipped it, lockdown made the directory root-owned. The first Reviewer run that
+  ever saw its AGENTS.md (01:27Z today, after the 11:17 PST rewrite re-wired it) did exactly what it
+  says — `gh pr diff/view`, QA, the verdict script — and hit "No such file or directory".
+  Fixes: `create-company.sh` carries the bundle keys through the replace, re-points any agent that
+  lost them (`agent instructions-path:update`) and exits non-zero if one stays unwired;
+  `devco status` reports agents running without instructions, Paperclip copies that differ from
+  the repo, every script the instructions name that is not installed, `/opt/devco/bin` files
+  behind the repo, and tasks waiting on the board (unassigned, escalated, or parked on an agent
+  with no run for 10 min); `sudo bash ~/devco-infra/bin/devco install-bin` reinstalls everything
+  `install-paperclip.sh` installs (one list, parsed from the installer); the Reviewer's failure rule
+  now says exactly how to stop (one PATCH, `in_review`, "Review verdict wiring failure").
+  (d) **`devco unstick <ticket>`** shows the task's state (status, assignees, review participant and
+  round count, live runs, pending cards, open recovery actions, execution locks) and the plan, then:
+  cancels live runs only with `--cancel-runs` (and stops if any survive), cancels pending question
+  cards (connection cards cannot be cancelled by the board; they expire when the assignee changes),
+  force-releases locks, stops a Hermes target's gateway unless it is busy, PATCHes status + assignee
+  + comment as the board and waits for the run, waking the agent on the issue if Paperclip does
+  not. Target and status follow the review stage: an agent holding the stage is woken back into
+  `in_review`; an escalated review goes back to the engineer with `in_progress` (Paperclip routes a
+  board `in_progress` there whatever `--to` says, so that is refused); otherwise the return
+  assignee or current agent. `--dry-run` first. Done/cancelled tasks are refused.
+  Also seen, not fixed: every Codex run first tries `python` (exit 127) before `python3`; the
+  Watchdog re-ran three times in five minutes on PR #5 while the Reviewer was parked.
+
 ## Things to check after the first week
 
 See `docs/first-week.md`.
